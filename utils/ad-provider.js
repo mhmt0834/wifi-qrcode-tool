@@ -20,6 +20,7 @@ const AD_INCOMPLETE_TOAST = '获取密码失败，请重试'
 
 let rewardedVideoAd = null
 let rewardedVideoAdResolve = null
+let lastRewardAdError = ''
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms))
@@ -32,19 +33,39 @@ function resolveRewardAd(completed) {
 	}
 }
 
+function setRewardAdError(errOrMsg) {
+	if (!errOrMsg) {
+		lastRewardAdError = ''
+		return
+	}
+	const msg =
+		typeof errOrMsg === 'string'
+			? errOrMsg
+			: (errOrMsg.errMsg || errOrMsg.message || JSON.stringify(errOrMsg))
+	lastRewardAdError = msg || AD_INCOMPLETE_TOAST
+}
+
 function ensureWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 	// #ifdef MP-WEIXIN
 	if (!adUnitId) {
 		console.error('[ad-provider] 未配置 WECHAT_AD_UNIT_ID')
+		setRewardAdError('未配置激励广告位 ID')
 		return null
 	}
 	if (!rewardedVideoAd) {
 		rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
 		rewardedVideoAd.onClose((res) => {
-			resolveRewardAd(res && res.isEnded)
+			if (res && res.isEnded === false) {
+				setRewardAdError('请完整观看激励视频后再获取密码')
+				resolveRewardAd(false)
+				return
+			}
+			setRewardAdError('')
+			resolveRewardAd(true)
 		})
 		rewardedVideoAd.onError((err) => {
 			console.error('[ad-provider] 激励视频错误', err)
+			setRewardAdError(err)
 			resolveRewardAd(false)
 		})
 	}
@@ -74,6 +95,7 @@ export async function showMockRewardAd(hooks = {}) {
 export function showWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 	return new Promise((resolve) => {
 		// #ifdef MP-WEIXIN
+		setRewardAdError('')
 		rewardedVideoAdResolve = resolve
 		const ad = ensureWechatRewardedVideoAd(adUnitId)
 		if (!ad) {
@@ -82,7 +104,8 @@ export function showWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 		}
 		ad
 			.show()
-			.catch(() => {
+			.catch((showErr) => {
+				setRewardAdError(showErr)
 				ad
 					.load()
 					.then(() => ad.show())
@@ -107,6 +130,7 @@ export function showWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 export async function showRewardAd(hooks = {}) {
 	try {
 		if (AUDIT_MODE) {
+			setRewardAdError('')
 			return true
 		}
 		if (USE_WECHAT_REWARD_AD) {
@@ -115,6 +139,7 @@ export async function showRewardAd(hooks = {}) {
 		return await showMockRewardAd(hooks)
 	} catch (err) {
 		console.error('[ad-provider] showRewardAd 异常', err)
+		setRewardAdError(err)
 		return false
 	}
 }
@@ -126,10 +151,24 @@ export function isAuditAdMode() {
 
 export function toastAdIncomplete() {
 	uni.showToast({
-		title: AD_INCOMPLETE_TOAST,
+		title: getRewardAdFailMessage(),
 		icon: 'none',
 		duration: 2500
 	})
+}
+
+export function getRewardAdFailMessage() {
+	if (!lastRewardAdError) return AD_INCOMPLETE_TOAST
+	if (lastRewardAdError.indexOf('no ad') !== -1 || lastRewardAdError.indexOf('广告拉取失败') !== -1) {
+		return '暂无可播放广告，请稍后重试'
+	}
+	if (lastRewardAdError.indexOf('完整观看') !== -1) {
+		return lastRewardAdError
+	}
+	if (lastRewardAdError.indexOf('未配置') !== -1) {
+		return lastRewardAdError
+	}
+	return `激励广告异常：${lastRewardAdError}`
 }
 
 export function preloadRewardAd() {

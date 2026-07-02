@@ -124,7 +124,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
-import { showRewardAd, toastAdIncomplete } from '@/utils/ad-provider.js'
+import { showRewardAd, getRewardAdFailMessage } from '@/utils/ad-provider.js'
 import {
 	autoConnectWifi,
 	goToSystemWifiPage,
@@ -251,7 +251,11 @@ async function onGetPassword() {
 	try {
 		const completed = await showRewardAd()
 		if (!completed) {
-			toastAdIncomplete()
+			uni.showModal({
+				title: '广告未播放',
+				content: getRewardAdFailMessage(),
+				showCancel: false
+			})
 			return
 		}
 		await unlockPassword()
