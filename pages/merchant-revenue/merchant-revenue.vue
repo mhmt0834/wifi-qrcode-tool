@@ -109,6 +109,7 @@ function changeTab(tab) {
 
 function formatWithdrawStatus(status) {
 	if (status === 'paid') return '提现已打款'
+	if (status === 'approved') return '提现已通过，等待打款'
 	if (status === 'rejected') return '提现已驳回'
 	return '提现申请处理中'
 }

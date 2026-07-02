@@ -81,6 +81,14 @@
 				</view>
 			</view>
 
+			<view v-if="isLogin && isPlatformAdminUser" class="card menu-card menu-card--admin">
+				<view class="menu-item" @click="goPage('/pages/platform-withdraw/platform-withdraw')">
+					<image class="menu-item__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
+					<text class="menu-item__text menu-item__text--gold">平台提现审核</text>
+					<text class="list-item__arrow">›</text>
+				</view>
+			</view>
+
 			<view class="card menu-card menu-card--policy">
 				<view class="menu-item" @click="goPrivacy">
 					<view class="menu-item__badge">隐</view>
@@ -127,6 +135,7 @@ import {
 import { saveStoredUser, getStoredUser as readStoredUser } from '@/utils/user-store.js'
 import { toastMessage } from '@/utils/cloud-config.js'
 import { isDevelopMiniProgram } from '@/utils/mp-env.js'
+import { checkPlatformAdminRole } from '@/utils/admin-db.js'
 
 const showDebugOpenid = isDevelopMiniProgram()
 const isLogin = ref(false)
@@ -136,6 +145,7 @@ const editAvatar = ref('')
 const stats = ref({ connectCount: 0, wifiCount: 0, dealCount: 0 })
 const saving = ref(false)
 const fetchingOpenid = ref(false)
+const isPlatformAdminUser = ref(false)
 
 function syncLocalUser() {
 	const user = getStoredUser()
@@ -204,6 +214,14 @@ async function loadStats() {
 	stats.value = { ...stats.value, wifiCount: count }
 }
 
+async function loadAdminRole() {
+	if (!isLogin.value) {
+		isPlatformAdminUser.value = false
+		return
+	}
+	isPlatformAdminUser.value = await checkPlatformAdminRole()
+}
+
 async function saveProfile() {
 	if (saving.value) return
 	saving.value = true
@@ -266,6 +284,7 @@ function goContact() {
 onShow(() => {
 	syncLocalUser()
 	loadStats()
+	loadAdminRole()
 	if (isLogin.value) {
 		refreshUserProfile()
 			.then(() => syncLocalUser())
@@ -403,6 +422,11 @@ onShow(() => {
 	&--policy {
 		border: 1px solid rgba(212, 175, 55, 0.25);
 		box-shadow: 0 0 16rpx rgba(212, 175, 55, 0.12);
+	}
+
+	&--admin {
+		border: 1px solid rgba(212, 175, 55, 0.3);
+		box-shadow: 0 0 18rpx rgba(212, 175, 55, 0.16);
 	}
 }
 

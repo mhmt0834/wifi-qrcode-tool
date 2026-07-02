@@ -19,6 +19,14 @@
 		"merchantAmount": { "bsonType": "double" },
 		"type": { "bsonType": "string" },
 		"status": { "bsonType": "string" },
+		"auditorOpenid": { "bsonType": "string" },
+		"auditNote": { "bsonType": "string" },
+		"auditTime": { "bsonType": "timestamp" },
+		"rejectTime": { "bsonType": "timestamp" },
+		"payerOpenid": { "bsonType": "string" },
+		"payNote": { "bsonType": "string" },
+		"payTime": { "bsonType": "timestamp" },
+		"updateTime": { "bsonType": "timestamp" },
 		"createTime": { "bsonType": "timestamp" }
 	}
 }

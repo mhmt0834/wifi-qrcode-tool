@@ -22,6 +22,16 @@ const AD_GROSS_REVENUE_PER_CONNECT = 0.15
 const PLATFORM_SHARE_RATE = 0.4
 const AGENT_SHARE_RATE = 0.3
 const MERCHANT_SHARE_RATE = 0.3
+const WITHDRAW_FREEZE_STATUSES = ['pending', 'approved', 'paid']
+
+/**
+ * 平台管理员 openid 白名单。
+ * 推荐在 uniCloud 环境变量 PLATFORM_ADMIN_OPENIDS 中配置，多个 openid 用英文逗号分隔。
+ * 也可以临时填入下方数组，部署云函数后生效。
+ */
+const PLATFORM_ADMIN_OPENIDS = [
+	''
+].filter(Boolean)
 
 function roundMoney(amount) {
 	return Math.round((Number(amount) || 0) * 10000) / 10000
@@ -41,6 +51,40 @@ function getLogMerchantAmount(item) {
 	if (!item) return 0
 	if (item.merchantAmount != null) return Number(item.merchantAmount) || 0
 	return Number(item.amount) || 0
+}
+
+function getPlatformAdminOpenids() {
+	const envValue =
+		typeof process !== 'undefined' && process.env
+			? String(process.env.PLATFORM_ADMIN_OPENIDS || '')
+			: ''
+	const envOpenids = envValue.split(',').map((item) => item.trim()).filter(Boolean)
+	return new Set([...PLATFORM_ADMIN_OPENIDS, ...envOpenids].map((item) => normalizeOpenid(item)).filter(Boolean))
+}
+
+function isPlatformAdmin(openid) {
+	return getPlatformAdminOpenids().has(normalizeOpenid(openid))
+}
+
+function isWithdrawFrozen(item) {
+	if (!item || item.type !== 'withdraw') return false
+	return WITHDRAW_FREEZE_STATUSES.includes(item.status || 'pending')
+}
+
+function calcWithdrawFrozenAmount(rows) {
+	return (rows || []).reduce((sum, item) => {
+		if (!isWithdrawFrozen(item)) return sum
+		return sum + (Number(item.amount) || 0)
+	}, 0)
+}
+
+function calcWithdrawProcessingAmount(rows) {
+	return (rows || []).reduce((sum, item) => {
+		if (!item || item.type !== 'withdraw') return sum
+		const status = item.status || 'pending'
+		if (status !== 'pending' && status !== 'approved') return sum
+		return sum + (Number(item.amount) || 0)
+	}, 0)
 }
 
 function calcHeat(viewCount, connectCount) {
@@ -922,20 +966,17 @@ async function handleMerchantStats(openid) {
 			.get()
 		let todayRevenue = 0
 		let totalRevenue = 0
-		let withdrawTotal = 0
-		let pendingWithdraw = 0
 		;(revenueRows || []).forEach((item) => {
 			const type = item.type || 'ad'
 			if (type === 'withdraw') {
-				const amount = Number(item.amount) || 0
-				withdrawTotal += amount
-				if ((item.status || 'pending') === 'pending') pendingWithdraw += amount
 				return
 			}
 			const merchantAmount = getLogMerchantAmount(item)
 			totalRevenue += merchantAmount
 			if ((item.createTime || 0) >= todayStart) todayRevenue += merchantAmount
 		})
+		const withdrawTotal = calcWithdrawFrozenAmount(revenueRows || [])
+		const pendingWithdraw = calcWithdrawProcessingAmount(revenueRows || [])
 		const {
 			total
 		} = await connectLogCollection.where({
@@ -1074,14 +1115,8 @@ async function handleMerchantRevenue(openid, range = '全部') {
 			if (item.type === 'withdraw') return s
 			return s + getLogMerchantAmount(item)
 		}, 0)
-		const withdrawTotal = all.reduce((s, item) => {
-			if (item.type !== 'withdraw') return s
-			return s + (Number(item.amount) || 0)
-		}, 0)
-		const pendingWithdraw = all.reduce((s, item) => {
-			if (item.type !== 'withdraw' || (item.status || 'pending') !== 'pending') return s
-			return s + (Number(item.amount) || 0)
-		}, 0)
+		const withdrawTotal = calcWithdrawFrozenAmount(all)
+		const pendingWithdraw = calcWithdrawProcessingAmount(all)
 		const todayRevenue = all.reduce((s, item) => {
 			if (item.type === 'withdraw' || (item.createTime || 0) < startOfTodayMs()) return s
 			return s + getLogMerchantAmount(item)
@@ -1139,10 +1174,7 @@ async function handleMerchantWithdrawRequest(event, openid) {
 			if (item.type === 'withdraw') return s
 			return s + getLogMerchantAmount(item)
 		}, 0)
-		const withdrawTotal = rows.reduce((s, item) => {
-			if (item.type !== 'withdraw') return s
-			return s + (Number(item.amount) || 0)
-		}, 0)
+		const withdrawTotal = calcWithdrawFrozenAmount(rows)
 		const withdrawable = roundMoney(Math.max(0, totalRevenue - withdrawTotal))
 		if (requestedAmount > withdrawable) {
 			return {
@@ -1178,6 +1210,185 @@ async function handleMerchantWithdrawRequest(event, openid) {
 		return {
 			code: 500,
 			msg: err.message || '提现申请失败',
+			data: null
+		}
+	}
+}
+
+async function handleCheckPlatformAdmin(openid) {
+	return {
+		code: 0,
+		msg: 'ok',
+		data: {
+			isAdmin: isPlatformAdmin(openid),
+			openid: normalizeOpenid(openid)
+		}
+	}
+}
+
+function rejectNonAdmin(openid) {
+	if (isPlatformAdmin(openid)) return null
+	return {
+		code: 403,
+		msg: '无管理员权限',
+		data: null
+	}
+}
+
+async function getMerchantProfileByOpenid(merchantOpenid) {
+	const openid = normalizeOpenid(merchantOpenid)
+	if (!openid) return null
+	const {
+		data
+	} = await merchantCollection.where({
+		openid
+	}).limit(1).get()
+	return data && data.length ? data[0] : null
+}
+
+async function handleAdminWithdrawList(event, openid) {
+	try {
+		const denied = rejectNonAdmin(openid)
+		if (denied) return denied
+		const status = String((event && event.status) || 'pending').trim()
+		const limit = Math.min(Number((event && event.limit) || 100) || 100, 100)
+		const query = {
+			type: 'withdraw'
+		}
+		if (status && status !== '全部') {
+			query.status = status
+		}
+		const {
+			data
+		} = await revenueLogCollection
+			.where(query)
+			.orderBy('createTime', 'desc')
+			.limit(limit)
+			.get()
+		const rows = data || []
+		const list = await Promise.all(rows.map(async (item) => {
+			const profile = await getMerchantProfileByOpenid(item.merchantOpenid)
+			return {
+				_id: item._id,
+				merchantOpenid: item.merchantOpenid || '',
+				merchantName: (profile && profile.shopName) || '未填写店铺',
+				merchantPhone: (profile && profile.phone) || '',
+				wechat: (profile && profile.wechat) || '',
+				amount: (Number(item.amount) || 0).toFixed(2),
+				status: item.status || 'pending',
+				time: formatDateTime(item.createTime),
+				createTime: item.createTime || 0,
+				auditNote: item.auditNote || '',
+				auditTime: item.auditTime ? formatDateTime(item.auditTime) : '',
+				payTime: item.payTime ? formatDateTime(item.payTime) : ''
+			}
+		}))
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				list
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] adminWithdrawList 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '查询失败',
+			data: {
+				list: []
+			}
+		}
+	}
+}
+
+async function handleAdminAuditWithdraw(event, openid) {
+	try {
+		const denied = rejectNonAdmin(openid)
+		if (denied) return denied
+		const withdrawId = String((event && event.withdrawId) || '').trim()
+		const auditAction = String((event && event.auditAction) || '').trim()
+		const auditNote = String((event && event.auditNote) || '').trim()
+		if (!withdrawId) return {
+			code: 400,
+			msg: '缺少提现申请 ID',
+			data: null
+		}
+		const {
+			data
+		} = await revenueLogCollection.doc(withdrawId).get()
+		if (!data || !data.length || data[0].type !== 'withdraw') {
+			return {
+				code: 404,
+				msg: '提现申请不存在',
+				data: null
+			}
+		}
+		const doc = data[0]
+		const currentStatus = doc.status || 'pending'
+		const now = Date.now()
+		let payload = null
+		if (auditAction === 'approve') {
+			if (currentStatus !== 'pending') return {
+				code: 400,
+				msg: '只有待审核申请可以通过',
+				data: null
+			}
+			payload = {
+				status: 'approved',
+				auditorOpenid: openid,
+				auditNote,
+				auditTime: now,
+				updateTime: now
+			}
+		} else if (auditAction === 'reject') {
+			if (currentStatus !== 'pending' && currentStatus !== 'approved') return {
+				code: 400,
+				msg: '当前状态不可驳回',
+				data: null
+			}
+			payload = {
+				status: 'rejected',
+				auditorOpenid: openid,
+				auditNote,
+				auditTime: now,
+				rejectTime: now,
+				updateTime: now
+			}
+		} else if (auditAction === 'paid') {
+			if (currentStatus !== 'approved') return {
+				code: 400,
+				msg: '请先审核通过，再标记已打款',
+				data: null
+			}
+			payload = {
+				status: 'paid',
+				payerOpenid: openid,
+				payNote: auditNote,
+				payTime: now,
+				updateTime: now
+			}
+		} else {
+			return {
+				code: 400,
+				msg: '审核操作错误',
+				data: null
+			}
+		}
+		await revenueLogCollection.doc(withdrawId).update(payload)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				_id: withdrawId,
+				status: payload.status
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] adminAuditWithdraw 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '审核失败',
 			data: null
 		}
 	}
@@ -1456,6 +1667,9 @@ exports.main = async (event, context) => {
 		'merchantConnects',
 		'merchantRevenue',
 		'merchantWithdrawRequest',
+		'checkPlatformAdmin',
+		'adminWithdrawList',
+		'adminAuditWithdraw',
 		'getMerchantProfile',
 		'saveMerchantProfile',
 		'updateWifiStatus',
@@ -1493,6 +1707,12 @@ exports.main = async (event, context) => {
 				return await handleMerchantRevenue(openid, event && event.range)
 			case 'merchantWithdrawRequest':
 				return await handleMerchantWithdrawRequest(event, openid)
+			case 'checkPlatformAdmin':
+				return await handleCheckPlatformAdmin(openid)
+			case 'adminWithdrawList':
+				return await handleAdminWithdrawList(event, openid)
+			case 'adminAuditWithdraw':
+				return await handleAdminAuditWithdraw(event, openid)
 			case 'getMerchantProfile':
 				return await handleGetMerchantProfile(openid)
 			case 'saveMerchantProfile':

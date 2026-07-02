@@ -19,7 +19,15 @@
 		"agentAmount": { "bsonType": "double", "title": "代理预留分成(元)" },
 		"merchantAmount": { "bsonType": "double", "title": "商家分成(元)" },
 		"type": { "bsonType": "string", "title": "类型", "enum": ["ad", "withdraw"] },
-		"status": { "bsonType": "string", "title": "状态", "enum": ["settled", "pending", "paid", "rejected"] },
+		"status": { "bsonType": "string", "title": "状态", "enum": ["settled", "pending", "approved", "paid", "rejected"] },
+		"auditorOpenid": { "bsonType": "string", "title": "审核人OpenID" },
+		"auditNote": { "bsonType": "string", "title": "审核备注" },
+		"auditTime": { "bsonType": "timestamp", "title": "审核时间" },
+		"rejectTime": { "bsonType": "timestamp", "title": "驳回时间" },
+		"payerOpenid": { "bsonType": "string", "title": "打款人OpenID" },
+		"payNote": { "bsonType": "string", "title": "打款备注" },
+		"payTime": { "bsonType": "timestamp", "title": "打款时间" },
+		"updateTime": { "bsonType": "timestamp", "title": "更新时间" },
 		"createTime": { "bsonType": "timestamp", "title": "创建时间" }
 	}
 }
