@@ -20,9 +20,12 @@
 			<!-- 仅开发版显示 openid 调试 -->
 			<view v-if="isLogin && showDebugOpenid" class="card debug-card">
 				<view class="card__title gold-title">调试 · openid</view>
-				<text class="debug-openid" selectable>{{ userInfo.openid || '—' }}</text>
+				<text class="debug-openid" selectable @click="copyOpenid">{{ userInfo.openid || '点击下方按钮获取' }}</text>
 				<button class="btn-outline btn-block debug-btn" size="mini" :loading="fetchingOpenid" @click="testFetchOpenid">
 					从云函数拉取 OPENID
+				</button>
+				<button v-if="userInfo.openid" class="btn-outline btn-block debug-btn" size="mini" @click="copyOpenid">
+					复制 OPENID
 				</button>
 			</view>
 
@@ -163,12 +166,33 @@ async function testFetchOpenid() {
 			stored.openid = openid
 			saveStoredUser(stored)
 		}
-		uni.showToast({ title: '已获取 openid', icon: 'success' })
+		uni.setClipboardData({
+			data: openid,
+			success: () => {
+				uni.showModal({
+					title: 'OPENID 已复制',
+					content: openid,
+					showCancel: false
+				})
+			}
+		})
 	} catch (err) {
 		uni.showToast({ title: toastMessage(err, '获取失败'), icon: 'none' })
 	} finally {
 		fetchingOpenid.value = false
 	}
+}
+
+function copyOpenid() {
+	const openid = userInfo.value.openid
+	if (!openid) {
+		uni.showToast({ title: '请先获取 openid', icon: 'none' })
+		return
+	}
+	uni.setClipboardData({
+		data: openid,
+		success: () => uni.showToast({ title: 'openid 已复制', icon: 'success' })
+	})
 }
 
 async function loadStats() {
