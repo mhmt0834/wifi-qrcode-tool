@@ -21,12 +21,14 @@ const AD_INCOMPLETE_TOAST = '获取密码失败，请重试'
 let rewardedVideoAd = null
 let rewardedVideoAdResolve = null
 let lastRewardAdError = ''
+let lastRewardAdTicket = ''
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function resolveRewardAd(completed) {
+	lastRewardAdTicket = completed ? `${Date.now()}-${Math.random().toString(16).slice(2)}` : ''
 	if (rewardedVideoAdResolve) {
 		rewardedVideoAdResolve(!!completed)
 		rewardedVideoAdResolve = null
@@ -52,18 +54,19 @@ function createWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 		setRewardAdError('未配置激励广告位 ID')
 		return null
 	}
-	rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
-	rewardedVideoAd.onClose((res) => {
-		if (res && res.isEnded === true) {
-			setRewardAdError('')
-			resolveRewardAd(true)
+		rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
+		rewardedVideoAd.onClose((res) => {
+			console.log('[ad-provider] 激励视频关闭回调', res)
+			if (res && res.isEnded === true) {
+				setRewardAdError('')
+				resolveRewardAd(true)
 			return
 		}
 		setRewardAdError('请完整观看激励视频后再获取密码')
 		resolveRewardAd(false)
 	})
-	rewardedVideoAd.onError((err) => {
-		console.error('[ad-provider] 激励视频错误', err)
+		rewardedVideoAd.onError((err) => {
+			console.error('[ad-provider] 激励视频错误', err)
 		setRewardAdError(err)
 		resolveRewardAd(false)
 	})
@@ -140,6 +143,19 @@ export async function showRewardAd(hooks = {}) {
 		setRewardAdError(err)
 		return false
 	}
+}
+
+export async function showRewardAdWithTicket(hooks = {}) {
+	lastRewardAdTicket = ''
+	const completed = await showRewardAd(hooks)
+	const ticket = completed ? lastRewardAdTicket : ''
+	const result = {
+		completed: !!(completed && ticket),
+		ticket,
+		error: completed && ticket ? '' : getRewardAdFailMessage()
+	}
+	console.log('[ad-provider] 激励广告结果', result)
+	return result
 }
 
 /** 是否处于提审模式（不展示/不播放任何广告） */

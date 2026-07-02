@@ -124,7 +124,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
-import { showRewardAd, getRewardAdFailMessage } from '@/utils/ad-provider.js'
+import { showRewardAdWithTicket, getRewardAdFailMessage } from '@/utils/ad-provider.js'
 import {
 	autoConnectWifi,
 	goToSystemWifiPage,
@@ -157,6 +157,7 @@ const adLoading = ref(false)
 const connecting = ref(false)
 const connectStatus = ref('idle')
 const wifiDocId = ref('')
+const lastAdTicket = ref('')
 
 const statusTitle = computed(() => {
 	if (connectStatus.value === 'connecting') return '正在自动连接 WiFi...'
@@ -214,8 +215,12 @@ function goHome() {
 }
 
 /** 获取连接凭证（审核模式跳过广告；正式版经 showRewardAd 播放激励视频） */
-async function unlockPassword() {
+async function unlockPassword(adTicket = '') {
 	if (!wifiDocId.value) return false
+	if (!adTicket || adTicket !== lastAdTicket.value) {
+		uni.showToast({ title: '请先完整观看激励视频', icon: 'none' })
+		return false
+	}
 
 	try {
 		const cred = await getWifiConnectCredential(wifiDocId.value)
@@ -249,16 +254,19 @@ async function onGetPassword() {
 
 	adLoading.value = true
 	try {
-		const completed = await showRewardAd()
-		if (!completed) {
+		lastAdTicket.value = ''
+		const adResult = await showRewardAdWithTicket()
+		console.log('[wifi-detail] 激励广告结果', adResult)
+		if (!adResult.completed || !adResult.ticket) {
 			uni.showModal({
 				title: '广告未播放',
-				content: getRewardAdFailMessage(),
+				content: adResult.error || getRewardAdFailMessage(),
 				showCancel: false
 			})
 			return
 		}
-		await unlockPassword()
+		lastAdTicket.value = adResult.ticket
+		await unlockPassword(adResult.ticket)
 	} catch (err) {
 		uni.showToast({ title: '操作失败，请重试', icon: 'none' })
 	} finally {
