@@ -37,6 +37,14 @@
 						<text class="mini-stat__val">{{ item.connectCount }}</text>
 						<text class="mini-stat__label">连接</text>
 					</view>
+					<view class="mini-stat">
+						<text class="mini-stat__val">¥{{ item.todayRevenue }}</text>
+						<text class="mini-stat__label">今日收益</text>
+					</view>
+					<view class="mini-stat">
+						<text class="mini-stat__val">¥{{ item.totalRevenue }}</text>
+						<text class="mini-stat__label">累计收益</text>
+					</view>
 				</view>
 			</view>
 

@@ -11,9 +11,15 @@
 		"_id": { "description": "文档 ID" },
 		"merchantOpenid": { "bsonType": "string", "title": "商家OpenID" },
 		"wifiId": { "bsonType": "string", "title": "WiFi文档ID" },
+		"wifiName": { "bsonType": "string", "title": "WiFi名称" },
 		"title": { "bsonType": "string", "title": "收益标题" },
-		"amount": { "bsonType": "double", "title": "金额(元)" },
+		"amount": { "bsonType": "double", "title": "商家金额/提现金额(元)" },
+		"grossAmount": { "bsonType": "double", "title": "广告总收入(元)" },
+		"platformAmount": { "bsonType": "double", "title": "平台分成(元)" },
+		"agentAmount": { "bsonType": "double", "title": "代理预留分成(元)" },
+		"merchantAmount": { "bsonType": "double", "title": "商家分成(元)" },
 		"type": { "bsonType": "string", "title": "类型", "enum": ["ad", "withdraw"] },
+		"status": { "bsonType": "string", "title": "状态", "enum": ["settled", "pending", "paid", "rejected"] },
 		"createTime": { "bsonType": "timestamp", "title": "创建时间" }
 	}
 }

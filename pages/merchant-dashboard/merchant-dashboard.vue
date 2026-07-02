@@ -24,6 +24,42 @@
 
 					<view class="stat-item">
 
+						<view class="stat-item__value">¥{{ stats.todayRevenue }}</view>
+
+						<view class="stat-item__label">今日收益</view>
+
+					</view>
+
+					<view class="stat-item">
+
+						<view class="stat-item__value">¥{{ stats.totalRevenue }}</view>
+
+						<view class="stat-item__label">累计收益</view>
+
+					</view>
+
+					<view class="stat-item">
+
+						<view class="stat-item__value">¥{{ stats.withdrawable }}</view>
+
+						<view class="stat-item__label">可提现</view>
+
+					</view>
+
+					<view class="stat-item stat-item--highlight">
+
+						<view class="stat-item__value">{{ stats.todayConnectCount }}</view>
+
+						<view class="stat-item__label">今日连接</view>
+
+					</view>
+
+				</view>
+
+				<view class="stat-grid stat-grid--secondary">
+
+					<view class="stat-item">
+
 						<view class="stat-item__value">{{ stats.wifiCount }}</view>
 
 						<view class="stat-item__label">WiFi总数</view>
@@ -42,15 +78,15 @@
 
 						<view class="stat-item__value">{{ stats.connectCount }}</view>
 
-						<view class="stat-item__label">连接次数</view>
+						<view class="stat-item__label">累计连接</view>
 
 					</view>
 
-					<view class="stat-item stat-item--highlight">
+					<view class="stat-item">
 
-						<view class="stat-item__value">{{ stats.todayNew }}</view>
+						<view class="stat-item__value">{{ stats.pendingWithdraw }}</view>
 
-						<view class="stat-item__label">今日新增</view>
+						<view class="stat-item__label">提现中</view>
 
 					</view>
 
@@ -161,7 +197,17 @@ const pageLoading = ref(false)
 
 const shopInfo = ref({ name: '我的店铺' })
 
-const stats = ref({ wifiCount: 0, viewCount: 0, connectCount: 0, todayNew: 0 })
+const stats = ref({
+	wifiCount: 0,
+	viewCount: 0,
+	connectCount: 0,
+	todayNew: 0,
+	todayConnectCount: 0,
+	todayRevenue: '0.00',
+	totalRevenue: '0.00',
+	withdrawable: '0.00',
+	pendingWithdraw: '0.00'
+})
 
 const recentConnects = ref([])
 
@@ -258,6 +304,10 @@ onUnmounted(() => {
 
 	margin-top: 24rpx;
 
+}
+
+.stat-grid--secondary {
+	margin-top: 16rpx;
 }
 
 

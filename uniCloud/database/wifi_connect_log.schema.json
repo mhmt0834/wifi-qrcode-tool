@@ -13,6 +13,10 @@
 		"merchantOpenid": { "bsonType": "string" },
 		"userOpenid": { "bsonType": "string" },
 		"connectTime": { "bsonType": "timestamp" },
-		"income": { "bsonType": "double" }
+		"income": { "bsonType": "double" },
+		"grossAmount": { "bsonType": "double" },
+		"platformAmount": { "bsonType": "double" },
+		"agentAmount": { "bsonType": "double" },
+		"merchantAmount": { "bsonType": "double" }
 	}
 }

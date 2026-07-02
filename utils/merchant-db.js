@@ -51,7 +51,9 @@ export async function getMerchantWifiList() {
 		status: item.status || '在线',
 		heat: item.heat != null ? item.heat : (item.viewCount || 0) + (item.connectCount || 0) * 5,
 		viewCount: item.viewCount || 0,
-		connectCount: item.connectCount || 0
+		connectCount: item.connectCount || 0,
+		todayRevenue: item.todayRevenue || '0.00',
+		totalRevenue: item.totalRevenue || '0.00'
 	}))
 }
 
@@ -60,11 +62,25 @@ export async function getMerchantDashboardStats() {
 	try {
 		const result = await callMerchantCloud({ action: 'merchantStats' })
 		if (!result || result.code !== 0) {
-			return { wifiCount: 0, viewCount: 0, connectCount: 0, todayNew: 0 }
+			return emptyMerchantStats()
 		}
-		return result.data || { wifiCount: 0, viewCount: 0, connectCount: 0, todayNew: 0 }
+		return { ...emptyMerchantStats(), ...(result.data || {}) }
 	} catch (err) {
-		return { wifiCount: 0, viewCount: 0, connectCount: 0, todayNew: 0 }
+		return emptyMerchantStats()
+	}
+}
+
+function emptyMerchantStats() {
+	return {
+		wifiCount: 0,
+		viewCount: 0,
+		connectCount: 0,
+		todayNew: 0,
+		todayConnectCount: 0,
+		todayRevenue: '0.00',
+		totalRevenue: '0.00',
+		withdrawable: '0.00',
+		pendingWithdraw: '0.00'
 	}
 }
 
@@ -84,12 +100,33 @@ export async function getMerchantRevenueList(range = '全部') {
 	try {
 		const result = await callMerchantCloud({ action: 'merchantRevenue', range })
 		if (!result || result.code !== 0) {
-			return { total: '0.00', list: [] }
+			return emptyMerchantRevenue()
 		}
-		return result.data || { total: '0.00', list: [] }
+		return { ...emptyMerchantRevenue(), ...(result.data || {}) }
 	} catch (err) {
-		return { total: '0.00', list: [] }
+		return emptyMerchantRevenue()
 	}
+}
+
+function emptyMerchantRevenue() {
+	return {
+		total: '0.00',
+		today: '0.00',
+		withdrawable: '0.00',
+		pendingWithdraw: '0.00',
+		list: []
+	}
+}
+
+export async function requestMerchantWithdraw(amount) {
+	const result = await callMerchantCloud({
+		action: 'merchantWithdrawRequest',
+		amount
+	})
+	if (!result || result.code !== 0) {
+		throw new Error((result && result.msg) || '提现申请失败')
+	}
+	return result.data
 }
 
 /** 商家资料 */

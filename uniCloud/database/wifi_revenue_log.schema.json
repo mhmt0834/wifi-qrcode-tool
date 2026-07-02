@@ -10,9 +10,15 @@
 		"_id": {},
 		"merchantOpenid": { "bsonType": "string" },
 		"wifiId": { "bsonType": "string" },
+		"wifiName": { "bsonType": "string" },
 		"title": { "bsonType": "string" },
 		"amount": { "bsonType": "double" },
+		"grossAmount": { "bsonType": "double" },
+		"platformAmount": { "bsonType": "double" },
+		"agentAmount": { "bsonType": "double" },
+		"merchantAmount": { "bsonType": "double" },
 		"type": { "bsonType": "string" },
+		"status": { "bsonType": "string" },
 		"createTime": { "bsonType": "timestamp" }
 	}
 }

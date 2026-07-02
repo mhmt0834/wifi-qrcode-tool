@@ -18,7 +18,36 @@ const merchantCollection = db.collection('merchant_profile')
 const connectLogCollection = db.collection('wifi_connect_log')
 const revenueLogCollection = db.collection('wifi_revenue_log')
 
-const AD_REVENUE_PER_CONNECT = 0.15
+const AD_GROSS_REVENUE_PER_CONNECT = 0.15
+const PLATFORM_SHARE_RATE = 0.4
+const AGENT_SHARE_RATE = 0.3
+const MERCHANT_SHARE_RATE = 0.3
+
+function roundMoney(amount) {
+	return Math.round((Number(amount) || 0) * 10000) / 10000
+}
+
+function calcRevenueShares(grossAmount = AD_GROSS_REVENUE_PER_CONNECT) {
+	const gross = roundMoney(grossAmount)
+	return {
+		grossAmount: gross,
+		platformAmount: roundMoney(gross * PLATFORM_SHARE_RATE),
+		agentAmount: roundMoney(gross * AGENT_SHARE_RATE),
+		merchantAmount: roundMoney(gross * MERCHANT_SHARE_RATE)
+	}
+}
+
+function getLogMerchantAmount(item) {
+	if (!item) return 0
+	if (item.merchantAmount != null) return Number(item.merchantAmount) || 0
+	return Number(item.amount) || 0
+}
+
+function getLogGrossAmount(item) {
+	if (!item) return 0
+	if (item.grossAmount != null) return Number(item.grossAmount) || 0
+	return Number(item.amount) || 0
+}
 
 function calcHeat(viewCount, connectCount) {
 	const v = Number(viewCount) || 0
@@ -805,7 +834,41 @@ async function handleMerchantWifiList(openid) {
 		} = await wifiCollection.where({
 			merchantOpenid: openid
 		}).orderBy('createTime', 'desc').get()
-		const list = (data || []).map((item) => enrichWifiDocForViewer(item, openid))
+		const todayStart = startOfTodayMs()
+		const wifiRevenueMap = {}
+		const {
+			data: revenueRows
+		} = await revenueLogCollection
+			.where({
+				merchantOpenid: openid,
+				type: 'ad'
+			})
+			.limit(1000)
+			.get()
+		;(revenueRows || []).forEach((item) => {
+			const wifiId = item.wifiId || ''
+			if (!wifiId) return
+			if (!wifiRevenueMap[wifiId]) {
+				wifiRevenueMap[wifiId] = {
+					totalRevenue: 0,
+					todayRevenue: 0
+				}
+			}
+			const amount = getLogMerchantAmount(item)
+			wifiRevenueMap[wifiId].totalRevenue += amount
+			if ((item.createTime || 0) >= todayStart) {
+				wifiRevenueMap[wifiId].todayRevenue += amount
+			}
+		})
+		const list = (data || []).map((item) => {
+			const enriched = enrichWifiDocForViewer(item, openid)
+			const revenue = wifiRevenueMap[item._id] || { totalRevenue: 0, todayRevenue: 0 }
+			return {
+				...enriched,
+				totalRevenue: revenue.totalRevenue.toFixed(2),
+				todayRevenue: revenue.todayRevenue.toFixed(2)
+			}
+		})
 		return {
 			code: 0,
 			msg: 'ok',
@@ -831,7 +894,12 @@ async function handleMerchantStats(openid) {
 					wifiCount: 0,
 					viewCount: 0,
 					connectCount: 0,
-					todayNew: 0
+					todayNew: 0,
+					todayConnectCount: 0,
+					todayRevenue: '0.00',
+					totalRevenue: '0.00',
+					withdrawable: '0.00',
+					pendingWithdraw: '0.00'
 				}
 			}
 		}
@@ -850,6 +918,36 @@ async function handleMerchantStats(openid) {
 			connectCount += item.connectCount || 0
 			if ((item.createTime || 0) >= todayStart) todayNew += 1
 		})
+		const {
+			data: revenueRows
+		} = await revenueLogCollection
+			.where({
+				merchantOpenid: openid
+			})
+			.limit(1000)
+			.get()
+		let todayRevenue = 0
+		let totalRevenue = 0
+		let withdrawTotal = 0
+		let pendingWithdraw = 0
+		;(revenueRows || []).forEach((item) => {
+			const type = item.type || 'ad'
+			if (type === 'withdraw') {
+				const amount = Number(item.amount) || 0
+				withdrawTotal += amount
+				if ((item.status || 'pending') === 'pending') pendingWithdraw += amount
+				return
+			}
+			const merchantAmount = getLogMerchantAmount(item)
+			totalRevenue += merchantAmount
+			if ((item.createTime || 0) >= todayStart) todayRevenue += merchantAmount
+		})
+		const {
+			total
+		} = await connectLogCollection.where({
+			merchantOpenid: openid,
+			connectTime: db.command.gte(todayStart)
+		}).count()
 		return {
 			code: 0,
 			msg: 'ok',
@@ -857,7 +955,12 @@ async function handleMerchantStats(openid) {
 				wifiCount: list.length,
 				viewCount,
 				connectCount,
-				todayNew
+				todayNew,
+				todayConnectCount: total || 0,
+				todayRevenue: todayRevenue.toFixed(2),
+				totalRevenue: totalRevenue.toFixed(2),
+				withdrawable: Math.max(0, totalRevenue - withdrawTotal).toFixed(2),
+				pendingWithdraw: pendingWithdraw.toFixed(2)
 			}
 		}
 	} catch (err) {
@@ -869,7 +972,12 @@ async function handleMerchantStats(openid) {
 				wifiCount: 0,
 				viewCount: 0,
 				connectCount: 0,
-				todayNew: 0
+				todayNew: 0,
+				todayConnectCount: 0,
+				todayRevenue: '0.00',
+				totalRevenue: '0.00',
+				withdrawable: '0.00',
+				pendingWithdraw: '0.00'
 			}
 		}
 	}
@@ -895,7 +1003,7 @@ async function handleMerchantConnects(openid, limit = 20) {
 			_id: item._id,
 			time: formatTimeHm(item.connectTime),
 			wifi: item.wifiName || 'WiFi',
-			income: (item.income != null ? item.income : AD_REVENUE_PER_CONNECT).toFixed(2)
+			income: (item.merchantAmount != null ? item.merchantAmount : (item.income || 0)).toFixed(2)
 		}))
 		return {
 			code: 0,
@@ -938,6 +1046,9 @@ async function handleMerchantRevenue(openid, range = '全部') {
 			msg: 'ok',
 			data: {
 				total: '0.00',
+				today: '0.00',
+				withdrawable: '0.00',
+				pendingWithdraw: '0.00',
 				list: []
 			}
 		}
@@ -952,27 +1063,46 @@ async function handleMerchantRevenue(openid, range = '全部') {
 			.get()
 		const all = data || []
 		const filtered = filterRevenueByRange(all, range)
-		let total = 0
 		const list = filtered.map((item) => {
-			const amount = Number(item.amount) || 0
-			if (item.type !== 'withdraw') total += amount
+			const amount = item.type === 'withdraw' ? (Number(item.amount) || 0) : getLogMerchantAmount(item)
 			return {
 				_id: item._id,
-				title: item.title || 'WiFi平台收益',
+				title: item.title || 'WiFi广告收益',
 				time: formatDateTime(item.createTime),
 				amount: amount.toFixed(2),
-				type: item.type || 'ad'
+				type: item.type || 'ad',
+				status: item.status || '',
+				wifiName: item.wifiName || '',
+				grossAmount: getLogGrossAmount(item).toFixed(2),
+				platformAmount: (Number(item.platformAmount) || 0).toFixed(2),
+				agentAmount: (Number(item.agentAmount) || 0).toFixed(2),
+				merchantAmount: amount.toFixed(2)
 			}
 		})
 		const sumAll = all.reduce((s, item) => {
 			if (item.type === 'withdraw') return s
+			return s + getLogMerchantAmount(item)
+		}, 0)
+		const withdrawTotal = all.reduce((s, item) => {
+			if (item.type !== 'withdraw') return s
 			return s + (Number(item.amount) || 0)
+		}, 0)
+		const pendingWithdraw = all.reduce((s, item) => {
+			if (item.type !== 'withdraw' || (item.status || 'pending') !== 'pending') return s
+			return s + (Number(item.amount) || 0)
+		}, 0)
+		const todayRevenue = all.reduce((s, item) => {
+			if (item.type === 'withdraw' || (item.createTime || 0) < startOfTodayMs()) return s
+			return s + getLogMerchantAmount(item)
 		}, 0)
 		return {
 			code: 0,
 			msg: 'ok',
 			data: {
 				total: sumAll.toFixed(2),
+				today: todayRevenue.toFixed(2),
+				withdrawable: Math.max(0, sumAll - withdrawTotal).toFixed(2),
+				pendingWithdraw: pendingWithdraw.toFixed(2),
 				list
 			}
 		}
@@ -983,8 +1113,81 @@ async function handleMerchantRevenue(openid, range = '全部') {
 			msg: 'ok',
 			data: {
 				total: '0.00',
+				today: '0.00',
+				withdrawable: '0.00',
+				pendingWithdraw: '0.00',
 				list: []
 			}
+		}
+	}
+}
+
+async function handleMerchantWithdrawRequest(event, openid) {
+	try {
+		if (!openid) return {
+			code: 401,
+			msg: '未登录',
+			data: null
+		}
+		const requestedAmount = roundMoney(event && event.amount)
+		if (!requestedAmount || requestedAmount <= 0) return {
+			code: 400,
+			msg: '提现金额错误',
+			data: null
+		}
+		const {
+			data
+		} = await revenueLogCollection
+			.where({
+				merchantOpenid: openid
+			})
+			.limit(1000)
+			.get()
+		const rows = data || []
+		const totalRevenue = rows.reduce((s, item) => {
+			if (item.type === 'withdraw') return s
+			return s + getLogMerchantAmount(item)
+		}, 0)
+		const withdrawTotal = rows.reduce((s, item) => {
+			if (item.type !== 'withdraw') return s
+			return s + (Number(item.amount) || 0)
+		}, 0)
+		const withdrawable = roundMoney(Math.max(0, totalRevenue - withdrawTotal))
+		if (requestedAmount > withdrawable) {
+			return {
+				code: 400,
+				msg: '可提现余额不足',
+				data: {
+					withdrawable: withdrawable.toFixed(2)
+				}
+			}
+		}
+		const now = Date.now()
+		const addRes = await revenueLogCollection.add({
+			merchantOpenid: openid,
+			wifiId: '',
+			title: '提现申请',
+			amount: requestedAmount,
+			type: 'withdraw',
+			status: 'pending',
+			createTime: now
+		})
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				_id: addRes.id,
+				amount: requestedAmount.toFixed(2),
+				status: 'pending',
+				createTime: now
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] merchantWithdrawRequest 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '提现申请失败',
+			data: null
 		}
 	}
 }
@@ -1153,6 +1356,7 @@ async function handleRecordConnect(event, userOpenid) {
 			}
 		}
 		const now = Date.now()
+		const shares = calcRevenueShares()
 		const connectCount = (doc.connectCount || 0) + 1
 		const viewCount = doc.viewCount || 0
 		const heat = calcHeat(viewCount, connectCount)
@@ -1166,14 +1370,24 @@ async function handleRecordConnect(event, userOpenid) {
 			merchantOpenid,
 			userOpenid: userOpenid || '',
 			connectTime: now,
-			income: AD_REVENUE_PER_CONNECT
+			income: shares.merchantAmount,
+			grossAmount: shares.grossAmount,
+			platformAmount: shares.platformAmount,
+			agentAmount: shares.agentAmount,
+			merchantAmount: shares.merchantAmount
 		})
 		await revenueLogCollection.add({
 			merchantOpenid,
 			wifiId,
-			title: 'WiFi平台收益',
-			amount: AD_REVENUE_PER_CONNECT,
+			wifiName: doc.wifiName || '',
+			title: 'WiFi广告收益',
+			amount: shares.merchantAmount,
+			grossAmount: shares.grossAmount,
+			platformAmount: shares.platformAmount,
+			agentAmount: shares.agentAmount,
+			merchantAmount: shares.merchantAmount,
 			type: 'ad',
+			status: 'settled',
 			createTime: now
 		})
 		return {
@@ -1181,7 +1395,11 @@ async function handleRecordConnect(event, userOpenid) {
 			msg: 'ok',
 			data: {
 				connectCount,
-				income: AD_REVENUE_PER_CONNECT
+				income: shares.merchantAmount,
+				grossAmount: shares.grossAmount,
+				platformAmount: shares.platformAmount,
+				agentAmount: shares.agentAmount,
+				merchantAmount: shares.merchantAmount
 			}
 		}
 	} catch (err) {
@@ -1249,6 +1467,7 @@ exports.main = async (event, context) => {
 		'merchantStats',
 		'merchantConnects',
 		'merchantRevenue',
+		'merchantWithdrawRequest',
 		'getMerchantProfile',
 		'saveMerchantProfile',
 		'updateWifiStatus',
@@ -1284,6 +1503,8 @@ exports.main = async (event, context) => {
 				return await handleMerchantConnects(openid, event && event.limit)
 			case 'merchantRevenue':
 				return await handleMerchantRevenue(openid, event && event.range)
+			case 'merchantWithdrawRequest':
+				return await handleMerchantWithdrawRequest(event, openid)
 			case 'getMerchantProfile':
 				return await handleGetMerchantProfile(openid)
 			case 'saveMerchantProfile':
