@@ -114,6 +114,12 @@ export function mapWifiDocToListItem(doc, index = 0) {
 
 		creatorOpenid: doc.creatorOpenid,
 
+		merchantOpenid: doc.merchantOpenid || '',
+
+		canManage: !!doc.canManage,
+
+		canAssignMerchantOpenid: !!doc.canAssignMerchantOpenid,
+
 		viewCount: doc.viewCount || 0,
 
 		connectCount: doc.connectCount || 0,
@@ -249,6 +255,8 @@ async function callWifiCloud(data) {
 		'getMyWifiDetail',
 
 		'updateWifi',
+
+		'assignMerchantOpenid',
 
 		'generateWifiQrCode'
 
@@ -537,6 +545,36 @@ export async function updateWifi(id, wifiData = {}) {
 		if (!result || result.code !== 0) {
 
 			throw new Error((result && result.msg) || '更新失败')
+
+		}
+
+		return mapWifiDocToManageDetail(result.data)
+
+	} catch (err) {
+
+		throw err
+
+	}
+
+}
+
+export async function assignWifiMerchant(id, merchantOpenid) {
+
+	try {
+
+		const result = await callWifiCloud({
+
+			action: 'assignMerchantOpenid',
+
+			id,
+
+			merchantOpenid
+
+		})
+
+		if (!result || result.code !== 0) {
+
+			throw new Error((result && result.msg) || '绑定商家失败')
 
 		}
 

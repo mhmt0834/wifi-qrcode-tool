@@ -41,6 +41,14 @@
 						<text class="info-label">创建时间</text>
 						<text class="info-value">{{ createTimeText }}</text>
 					</view>
+					<view class="info-row">
+						<text class="info-label">创建者</text>
+						<text class="info-value info-value--openid">{{ detail.creatorOpenid || '—' }}</text>
+					</view>
+					<view class="info-row">
+						<text class="info-label">收益商家</text>
+						<text class="info-value info-value--openid">{{ detail.merchantOpenid || '未绑定' }}</text>
+					</view>
 					<view class="stat-row">
 						<view class="stat-box">
 							<text class="stat-box__val">{{ detail.viewCount }}</text>
@@ -71,6 +79,15 @@
 						:maxlength="500"
 					/>
 					<input v-model="form.tags" class="input-field" placeholder="标签，多个用英文逗号分隔" />
+				</view>
+
+				<view v-if="!editMode && detail.canAssignMerchantOpenid" class="card">
+					<view class="card__title">商家归属</view>
+					<view class="card__desc">收益、连接记录和商家后台管理权将归属于该商家 OpenID</view>
+					<input v-model="merchantOpenidInput" class="input-field" placeholder="请输入商家 openid" />
+					<button class="btn-primary btn-block" :loading="assigningMerchant" @click="handleAssignMerchant">
+						绑定商家
+					</button>
 				</view>
 
 				<!-- 状态管理 -->
@@ -163,7 +180,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
-import { getMyWifiDetail, updateWifi, deleteWifi, updateWifiStatus } from '@/utils/wifi-db.js'
+import { getMyWifiDetail, updateWifi, deleteWifi, updateWifiStatus, assignWifiMerchant } from '@/utils/wifi-db.js'
 import { MY_WIFI_REFRESH_EVENT, MERCHANT_REFRESH_EVENT, WIFI_LIST_REFRESH_EVENT } from '@/utils/cloud-config.js'
 import { generateWifiQrCode, resolveQrImageDisplayUrl, saveQrCodeToAlbum } from '@/utils/wifi-qr.js'
 import { createWifiSharePosterInPage, sharePosterImage } from '@/utils/wifi-qr-poster.js'
@@ -176,6 +193,7 @@ const detail = ref(null)
 const showQrPanel = ref(false)
 const qrGenerating = ref(false)
 const posterGenerating = ref(false)
+const assigningMerchant = ref(false)
 const qrDisplayUrl = ref('')
 const qrDisplayLoading = ref(false)
 const qrDisplayError = ref('')
@@ -188,6 +206,7 @@ const form = ref({
 	intro: '',
 	tags: ''
 })
+const merchantOpenidInput = ref('')
 
 const tagList = computed(() => {
 	const raw = (detail.value && detail.value.tags) || ''
@@ -236,6 +255,7 @@ async function loadDetail() {
 	try {
 		const data = await getMyWifiDetail(wifiId.value)
 		detail.value = data
+		merchantOpenidInput.value = data.merchantOpenid || ''
 		fillFormFromDetail(data)
 		if (data.qrCodeUrl) {
 			await refreshQrDisplayUrl(data.qrCodeUrl)
@@ -263,6 +283,27 @@ async function setStatus(status) {
 		notifyRefresh()
 	} else {
 		uni.showToast({ title: '状态更新失败', icon: 'none' })
+	}
+}
+
+async function handleAssignMerchant() {
+	if (!detail.value || !detail.value.canAssignMerchantOpenid) return
+	const merchantOpenid = String(merchantOpenidInput.value || '').trim()
+	if (!merchantOpenid) {
+		uni.showToast({ title: '请填写商家 openid', icon: 'none' })
+		return
+	}
+	assigningMerchant.value = true
+	try {
+		const data = await assignWifiMerchant(wifiId.value, merchantOpenid)
+		detail.value = data
+		merchantOpenidInput.value = data.merchantOpenid || ''
+		uni.showToast({ title: '已绑定商家', icon: 'success' })
+		notifyRefresh()
+	} catch (err) {
+		uni.showToast({ title: err.message || '绑定失败', icon: 'none' })
+	} finally {
+		assigningMerchant.value = false
 	}
 }
 

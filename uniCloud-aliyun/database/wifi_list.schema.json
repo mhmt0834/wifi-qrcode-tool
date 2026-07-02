@@ -78,6 +78,11 @@
 			"title": "创建者OpenID",
 			"description": "微信小程序用户 openid（云函数 context.OPENID），用于「我的WiFi」与删除鉴权"
 		},
+		"merchantOpenid": {
+			"bsonType": "string",
+			"title": "商家OpenID",
+			"description": "真正拥有该 WiFi 收益与商家后台管理权的商家 openid；收益统计、连接记录、分润均以此字段为准"
+		},
 		"viewCount": {
 			"bsonType": "int",
 			"title": "浏览次数",

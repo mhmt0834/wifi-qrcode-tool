@@ -4,7 +4,7 @@
 		<view class="page-content">
 			<view class="hero-card">
 				<view class="hero-card__title">WiFi管理</view>
-				<view class="hero-card__desc">仅显示您上传到云数据库的 WiFi</view>
+				<view class="hero-card__desc">仅显示归属于当前商家的 WiFi</view>
 			</view>
 
 			<view v-if="listLoading" class="list-loading">加载中...</view>
@@ -14,7 +14,7 @@
 				<view class="empty-state__text">暂无 WiFi，请先添加</view>
 			</view>
 
-			<view v-for="item in wifiList" :key="item._id" class="wifi-card">
+			<view v-for="item in wifiList" :key="item._id" class="wifi-card" @click="goDetail(item)">
 				<view class="wifi-card__top">
 					<view>
 						<view class="wifi-card__name">{{ item.name }}</view>
@@ -69,6 +69,13 @@ async function loadList() {
 
 function goCreate() {
 	uni.navigateTo({ url: '/pages/create-wifi/create-wifi' })
+}
+
+function goDetail(item) {
+	if (!item || !item._id) return
+	uni.navigateTo({
+		url: '/pages/wifi-manage-detail/wifi-manage-detail?id=' + encodeURIComponent(item._id)
+	})
 }
 
 function onMerchantRefresh() {

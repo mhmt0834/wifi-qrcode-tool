@@ -10,7 +10,6 @@ import {
 	formatCloudError
 } from '@/utils/cloud-config.js'
 import { withTimeout } from '@/utils/promise-util.js'
-import { getMyWifiList } from '@/utils/wifi-db.js'
 
 const CLOUD_FUNCTION = WIFI_CLOUD_FUNCTION
 
@@ -39,9 +38,11 @@ function formatCreateTime(ts) {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** 商家 WiFi 列表（当前用户 creatorOpenid） */
+/** 商家 WiFi 列表（当前用户 merchantOpenid） */
 export async function getMerchantWifiList() {
-	const list = await getMyWifiList()
+	const result = await callMerchantCloud({ action: 'merchantWifiList' })
+	if (!result || result.code !== 0) return []
+	const list = result.data || []
 	return list.map((item) => ({
 		_id: item._id,
 		name: item.name || item.ssid,

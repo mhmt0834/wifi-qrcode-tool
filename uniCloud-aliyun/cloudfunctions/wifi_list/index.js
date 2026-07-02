@@ -259,6 +259,7 @@ async function handleAdd(event, openid) {
 			wifiName,
 			wifiPassword,
 			shopName,
+			merchantOpenid = '',
 			latitude,
 			longitude,
 			signal = '强',
@@ -293,6 +294,7 @@ async function handleAdd(event, openid) {
 			distance: 0,
 			createTime: Date.now(),
 			creatorOpenid: openid,
+			merchantOpenid: normalizeOpenid(merchantOpenid),
 			viewCount: 0,
 			connectCount: 0,
 			heat: 0,
@@ -345,7 +347,7 @@ async function handleDelete(event, openid) {
 			msg: 'WiFi 不存在',
 			data: null
 		}
-		if (data[0].creatorOpenid && data[0].creatorOpenid !== openid) {
+		if (!canManageWifiDoc(data[0], openid)) {
 			return {
 				code: 403,
 				msg: '无权限删除',
@@ -385,6 +387,31 @@ function enrichWifiDoc(item) {
 		qrCodeUrl: item.qrCodeUrl || '',
 		qrCodeStatus: item.qrCodeStatus || '未生成',
 		qrCodeCreateTime: item.qrCodeCreateTime || null
+	}
+}
+
+function normalizeOpenid(value) {
+	return String(value || '').trim()
+}
+
+function canManageWifiDoc(doc, openid) {
+	const userOpenid = normalizeOpenid(openid)
+	if (!doc || !userOpenid) return false
+	return doc.creatorOpenid === userOpenid || doc.merchantOpenid === userOpenid
+}
+
+function canAssignMerchantOpenid(doc, openid) {
+	const userOpenid = normalizeOpenid(openid)
+	if (!doc || !userOpenid) return false
+	return doc.creatorOpenid === userOpenid
+}
+
+function enrichWifiDocForViewer(doc, openid) {
+	const enriched = enrichWifiDoc(doc)
+	return {
+		...enriched,
+		canManage: canManageWifiDoc(enriched, openid),
+		canAssignMerchantOpenid: canAssignMerchantOpenid(enriched, openid)
 	}
 }
 
@@ -508,7 +535,7 @@ async function handleGenerateWifiQrCode(event, openid) {
 			msg: 'WiFi 不存在',
 			data: null
 		}
-		if (data[0].creatorOpenid && data[0].creatorOpenid !== openid) {
+		if (!canManageWifiDoc(data[0], openid)) {
 			return {
 				code: 403,
 				msg: '无权限',
@@ -588,7 +615,7 @@ async function handleGetMyWifiDetail(event, openid) {
 			data: null
 		}
 		const doc = data[0]
-		if (doc.creatorOpenid && doc.creatorOpenid !== openid) {
+		if (!canManageWifiDoc(doc, openid)) {
 			return {
 				code: 403,
 				msg: '无权限查看',
@@ -598,7 +625,7 @@ async function handleGetMyWifiDetail(event, openid) {
 		return {
 			code: 0,
 			msg: 'ok',
-			data: enrichWifiDoc(doc)
+			data: enrichWifiDocForViewer(doc, openid)
 		}
 	} catch (err) {
 		console.error('[wifi_list] getMyWifiDetail 失败', err)
@@ -641,7 +668,7 @@ async function handleUpdateWifi(event, openid) {
 			msg: 'WiFi 不存在',
 			data: null
 		}
-		if (data[0].creatorOpenid && data[0].creatorOpenid !== openid) {
+		if (!canManageWifiDoc(data[0], openid)) {
 			return {
 				code: 403,
 				msg: '无权限编辑',
@@ -666,13 +693,73 @@ async function handleUpdateWifi(event, openid) {
 		return {
 			code: 0,
 			msg: 'ok',
-			data: enrichWifiDoc(updated[0])
+			data: enrichWifiDocForViewer(updated[0], openid)
 		}
 	} catch (err) {
 		console.error('[wifi_list] updateWifi 失败', err)
 		return {
 			code: 500,
 			msg: err.message || '更新失败',
+			data: null
+		}
+	}
+}
+
+async function handleAssignMerchantOpenid(event, openid) {
+	try {
+		const {
+			id,
+			merchantOpenid
+		} = event || {}
+		if (!id) return {
+			code: 400,
+			msg: '缺少 id',
+			data: null
+		}
+		if (!openid) return {
+			code: 401,
+			msg: '未登录',
+			data: null
+		}
+		const nextMerchantOpenid = normalizeOpenid(merchantOpenid)
+		if (!nextMerchantOpenid) return {
+			code: 400,
+			msg: '请填写商家 openid',
+			data: null
+		}
+		const {
+			data
+		} = await wifiCollection.doc(id).get()
+		if (!data || !data.length) return {
+			code: 404,
+			msg: 'WiFi 不存在',
+			data: null
+		}
+		const doc = data[0]
+		if (!canAssignMerchantOpenid(doc, openid)) {
+			return {
+				code: 403,
+				msg: '只有创建者可以绑定商家归属',
+				data: null
+			}
+		}
+		await wifiCollection.doc(id).update({
+			merchantOpenid: nextMerchantOpenid,
+			updateTime: Date.now()
+		})
+		const {
+			data: updated
+		} = await wifiCollection.doc(id).get()
+		return {
+			code: 0,
+			msg: 'ok',
+			data: enrichWifiDocForViewer(updated[0], openid)
+		}
+	} catch (err) {
+		console.error('[wifi_list] assignMerchantOpenid 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '绑定失败',
 			data: null
 		}
 	}
@@ -706,6 +793,34 @@ async function handleMyList(openid) {
 	}
 }
 
+async function handleMerchantWifiList(openid) {
+	try {
+		if (!openid) return {
+			code: 0,
+			msg: 'ok',
+			data: []
+		}
+		const {
+			data
+		} = await wifiCollection.where({
+			merchantOpenid: openid
+		}).orderBy('createTime', 'desc').get()
+		const list = (data || []).map((item) => enrichWifiDocForViewer(item, openid))
+		return {
+			code: 0,
+			msg: 'ok',
+			data: list
+		}
+	} catch (err) {
+		console.error('[wifi_list] handleMerchantWifiList 失败', err)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: []
+		}
+	}
+}
+
 async function handleMerchantStats(openid) {
 	try {
 		if (!openid) {
@@ -723,7 +838,7 @@ async function handleMerchantStats(openid) {
 		const {
 			data
 		} = await wifiCollection.where({
-			creatorOpenid: openid
+			merchantOpenid: openid
 		}).get()
 		const list = data || []
 		const todayStart = startOfTodayMs()
@@ -1029,7 +1144,7 @@ async function handleRecordConnect(event, userOpenid) {
 			data: null
 		}
 		const doc = data[0]
-		const merchantOpenid = doc.merchantOpenid || doc.creatorOpenid || ''
+		const merchantOpenid = normalizeOpenid(doc.merchantOpenid)
 		if (!merchantOpenid || merchantOpenid === 'system-seed-data') {
 			return {
 				code: 0,
@@ -1093,7 +1208,7 @@ async function handleUpdateWifiStatus(event, openid) {
 		const {
 			data
 		} = await wifiCollection.doc(id).get()
-		if (!data || !data.length || data[0].creatorOpenid !== openid) {
+		if (!data || !data.length || !canManageWifiDoc(data[0], openid)) {
 			return {
 				code: 403,
 				msg: '无权限',
@@ -1130,6 +1245,7 @@ exports.main = async (event, context) => {
 		'add',
 		'delete',
 		'myList',
+		'merchantWifiList',
 		'merchantStats',
 		'merchantConnects',
 		'merchantRevenue',
@@ -1138,6 +1254,7 @@ exports.main = async (event, context) => {
 		'updateWifiStatus',
 		'getMyWifiDetail',
 		'updateWifi',
+		'assignMerchantOpenid',
 		'generateWifiQrCode'
 	]
 	const needOpenidOptional = ['recordConnect']
@@ -1159,6 +1276,8 @@ exports.main = async (event, context) => {
 				return await handleDelete(event, openid)
 			case 'myList':
 				return await handleMyList(openid)
+			case 'merchantWifiList':
+				return await handleMerchantWifiList(openid)
 			case 'merchantStats':
 				return await handleMerchantStats(openid)
 			case 'merchantConnects':
@@ -1179,6 +1298,8 @@ exports.main = async (event, context) => {
 				return await handleGetMyWifiDetail(event, openid)
 			case 'updateWifi':
 				return await handleUpdateWifi(event, openid)
+			case 'assignMerchantOpenid':
+				return await handleAssignMerchantOpenid(event, openid)
 			case 'getWifiPublicDetail':
 				return await handleGetWifiPublicDetail(event)
 			case 'getWifiConnectCredential':
