@@ -1,0 +1,143 @@
+{
+	"bsonType": "object",
+	"description": "WiFi 共享列表集合 · 智连WiFi 小程序 · 兼容 uni-app + 微信小程序",
+	"required": [
+		"wifiName",
+		"wifiPassword",
+		"shopName",
+		"latitude",
+		"longitude",
+		"createTime"
+	],
+	"permission": {
+		"read": true,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": {
+			"description": "文档唯一 ID，由 uniCloud 数据库自动生成"
+		},
+		"wifiName": {
+			"bsonType": "string",
+			"title": "WiFi名称",
+			"description": "WiFi 网络名称（SSID），对应微信 connectWifi 的 SSID 参数",
+			"trim": "both",
+			"minLength": 1,
+			"maxLength": 64
+		},
+		"wifiPassword": {
+			"bsonType": "string",
+			"title": "WiFi密码",
+			"description": "WiFi 连接密码，仅在用户观看完整广告后用于自动连接，不在列表页明文展示",
+			"trim": "both",
+			"minLength": 1,
+			"maxLength": 128
+		},
+		"shopName": {
+			"bsonType": "string",
+			"title": "店铺名称",
+			"description": "WiFi 所属商户或店铺名称，用于首页/附近页展示",
+			"trim": "both",
+			"minLength": 1,
+			"maxLength": 64
+		},
+		"latitude": {
+			"bsonType": "double",
+			"title": "纬度",
+			"description": "GCJ-02 坐标系纬度（与 uni.getLocation type=gcj02 一致），用于附近 WiFi 距离计算"
+		},
+		"longitude": {
+			"bsonType": "double",
+			"title": "经度",
+			"description": "GCJ-02 坐标系经度，用于附近 WiFi 距离计算与排序"
+		},
+		"signal": {
+			"bsonType": "string",
+			"title": "信号强度",
+			"description": "信号强度描述：强 / 中 / 弱",
+			"defaultValue": "强",
+			"enum": ["强", "中", "弱"]
+		},
+		"distance": {
+			"bsonType": "double",
+			"title": "距离(米)",
+			"description": "可选静态距离字段；业务侧 nearby 查询时会按用户坐标动态重算并覆盖"
+		},
+		"createTime": {
+			"bsonType": "timestamp",
+			"title": "创建时间",
+			"description": "记录创建时间戳，新增时由 schema 默认值自动写入",
+			"forceDefaultValue": {
+				"$env": "now"
+			}
+		},
+		"creatorOpenid": {
+			"bsonType": "string",
+			"title": "创建者OpenID",
+			"description": "微信小程序用户 openid（云函数 context.OPENID），用于「我的WiFi」与删除鉴权"
+		},
+		"viewCount": {
+			"bsonType": "int",
+			"title": "浏览次数",
+			"description": "WiFi 详情页被打开次数",
+			"defaultValue": 0
+		},
+		"connectCount": {
+			"bsonType": "int",
+			"title": "连接次数",
+			"description": "用户成功连接次数累计",
+			"defaultValue": 0
+		},
+		"heat": {
+			"bsonType": "int",
+			"title": "热度",
+			"description": "由浏览与连接综合计算的热度值",
+			"defaultValue": 0
+		},
+		"status": {
+			"bsonType": "string",
+			"title": "状态",
+			"description": "在线 / 离线",
+			"defaultValue": "在线",
+			"enum": ["在线", "离线"]
+		},
+		"address": {
+			"bsonType": "string",
+			"title": "地址",
+			"description": "店铺或 WiFi 所在地址",
+			"trim": "both",
+			"maxLength": 200
+		},
+		"intro": {
+			"bsonType": "string",
+			"title": "介绍",
+			"description": "WiFi 或店铺简介",
+			"trim": "both",
+			"maxLength": 500
+		},
+		"tags": {
+			"bsonType": "string",
+			"title": "标签",
+			"description": "多个标签用英文逗号分隔",
+			"trim": "both",
+			"maxLength": 128
+		},
+		"qrCodeUrl": {
+			"bsonType": "string",
+			"title": "二维码图片",
+			"description": "云存储 fileID 或 https 地址"
+		},
+		"qrCodeStatus": {
+			"bsonType": "string",
+			"title": "二维码状态",
+			"description": "未生成 / 已生成 / 生成失败",
+			"defaultValue": "未生成"
+		},
+		"qrCodeCreateTime": {
+			"bsonType": "timestamp",
+			"title": "二维码生成时间"
+		}
+	}
+}

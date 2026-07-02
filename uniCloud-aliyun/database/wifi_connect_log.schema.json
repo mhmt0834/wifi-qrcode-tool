@@ -1,0 +1,19 @@
+{
+	"bsonType": "object",
+	"description": "WiFi 连接记录 · 商家后台最近连接",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": { "description": "文档 ID" },
+		"wifiId": { "bsonType": "string", "title": "WiFi文档ID" },
+		"wifiName": { "bsonType": "string", "title": "WiFi名称" },
+		"merchantOpenid": { "bsonType": "string", "title": "商家OpenID" },
+		"userOpenid": { "bsonType": "string", "title": "连接用户OpenID" },
+		"connectTime": { "bsonType": "timestamp", "title": "连接时间" },
+		"income": { "bsonType": "double", "title": "本次收益(元)" }
+	}
+}

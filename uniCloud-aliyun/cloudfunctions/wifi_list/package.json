@@ -1,0 +1,10 @@
+{
+	"name": "wifi_list",
+	"version": "1.0.0",
+	"description": "WiFi 列表云函数：新增、删除、附近查询（按距离排序）",
+	"main": "index.js",
+	"dependencies": {
+		"wx-openid": "file:../common/wx-openid",
+		"wx-qrcode": "file:../common/wx-qrcode"
+	}
+}

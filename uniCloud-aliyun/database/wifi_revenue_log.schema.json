@@ -1,0 +1,19 @@
+{
+	"bsonType": "object",
+	"description": "商家收益明细",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": { "description": "文档 ID" },
+		"merchantOpenid": { "bsonType": "string", "title": "商家OpenID" },
+		"wifiId": { "bsonType": "string", "title": "WiFi文档ID" },
+		"title": { "bsonType": "string", "title": "收益标题" },
+		"amount": { "bsonType": "double", "title": "金额(元)" },
+		"type": { "bsonType": "string", "title": "类型", "enum": ["ad", "withdraw"] },
+		"createTime": { "bsonType": "timestamp", "title": "创建时间" }
+	}
+}

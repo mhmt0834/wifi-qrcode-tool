@@ -1,0 +1,18 @@
+{
+	"bsonType": "object",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": {},
+		"merchantOpenid": { "bsonType": "string" },
+		"wifiId": { "bsonType": "string" },
+		"title": { "bsonType": "string" },
+		"amount": { "bsonType": "double" },
+		"type": { "bsonType": "string" },
+		"createTime": { "bsonType": "timestamp" }
+	}
+}

@@ -1,0 +1,9 @@
+{
+	"name": "user_auth",
+	"version": "1.0.0",
+	"description": "微信登录与用户资料：openid、nickname、avatar",
+	"main": "index.js",
+	"dependencies": {
+		"wx-openid": "file:../common/wx-openid"
+	}
+}

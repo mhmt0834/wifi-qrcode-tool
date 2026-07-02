@@ -1,0 +1,38 @@
+// ============================================================================
+// uniCloud 云数据库 JQL 调试文件 · wifi_list 集合
+// ============================================================================
+//
+// 使用方式（HBuilderX）：
+// 1. 关联 uniCloud 阿里云服务空间
+// 2. 右键 uniCloud-aliyun/database/wifi_list.schema.json → 上传 DB Schema
+//    （上传时会自动导入同目录 wifi_list.init_data.json 测试数据）
+// 3. 在本文件选中 JQL 语句，点击运行或按 F5 执行
+//
+// 注意：JQL 文件云端运行不受 schema permission 限制；
+//       客户端业务代码仍走 schema 权限与云函数鉴权。
+// ============================================================================
+
+// ---------- 查询：最近创建的 10 条 WiFi ----------
+// db.collection('wifi_list').orderBy('createTime', 'desc').limit(10).get();
+
+// ---------- 查询：按店铺名模糊搜索 ----------
+// db.collection('wifi_list').where(/星巴克/).get();
+
+// ---------- 新增：单条测试 WiFi（手动调试时使用） ----------
+// db.collection('wifi_list').add({
+//   wifiName: '智连WiFi-测试',
+//   wifiPassword: 'Test@123456',
+//   shopName: '测试店铺',
+//   latitude: 39.908823,
+//   longitude: 116.397470,
+//   signal: '强',
+//   distance: 0,
+//   createTime: Date.now(),
+//   creatorOpenid: 'test-openid-manual'
+// });
+
+// ---------- 删除：按 WiFi 名称删除测试数据（慎用） ----------
+// db.collection('wifi_list').where({ wifiName: '智连WiFi-测试' }).remove();
+
+// 默认执行：查询全部 WiFi（最多 20 条）
+db.collection('wifi_list').orderBy('createTime', 'desc').limit(20).get();

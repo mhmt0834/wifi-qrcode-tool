@@ -1,0 +1,6 @@
+{
+	"name": "wx-openid",
+	"version": "1.0.0",
+	"description": "解析微信小程序 openid（阿里云：code2session；腾讯云：context.OPENID）",
+	"main": "index.js"
+}

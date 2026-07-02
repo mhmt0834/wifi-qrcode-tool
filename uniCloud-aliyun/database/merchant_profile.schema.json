@@ -1,0 +1,29 @@
+{
+	"bsonType": "object",
+	"description": "商家入驻资料 · 按 openid 唯一",
+	"required": ["openid"],
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": { "description": "文档 ID" },
+		"openid": {
+			"bsonType": "string",
+			"title": "商家OpenID",
+			"trim": "both"
+		},
+		"shopName": { "bsonType": "string", "title": "店铺名称", "trim": "both" },
+		"contact": { "bsonType": "string", "title": "联系人", "trim": "both" },
+		"phone": { "bsonType": "string", "title": "联系电话", "trim": "both" },
+		"address": { "bsonType": "string", "title": "店铺地址", "trim": "both" },
+		"defaultAd": { "bsonType": "bool", "title": "默认需观看广告", "defaultValue": true },
+		"pushDeal": { "bsonType": "bool", "title": "连接后推送优惠", "defaultValue": true },
+		"autoWithdraw": { "bsonType": "bool", "title": "收益自动提现", "defaultValue": false },
+		"wechat": { "bsonType": "string", "title": "提现微信账号", "trim": "both" },
+		"createTime": { "bsonType": "timestamp", "title": "创建时间" },
+		"updateTime": { "bsonType": "timestamp", "title": "更新时间" }
+	}
+}
