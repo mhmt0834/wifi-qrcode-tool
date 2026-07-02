@@ -45,30 +45,28 @@ function setRewardAdError(errOrMsg) {
 	lastRewardAdError = msg || AD_INCOMPLETE_TOAST
 }
 
-function ensureWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
+function createWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 	// #ifdef MP-WEIXIN
 	if (!adUnitId) {
 		console.error('[ad-provider] 未配置 WECHAT_AD_UNIT_ID')
 		setRewardAdError('未配置激励广告位 ID')
 		return null
 	}
-	if (!rewardedVideoAd) {
-		rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
-		rewardedVideoAd.onClose((res) => {
-			if (res && res.isEnded === true) {
-				setRewardAdError('')
-				resolveRewardAd(true)
-				return
-			}
-			setRewardAdError('请完整观看激励视频后再获取密码')
-			resolveRewardAd(false)
-		})
-		rewardedVideoAd.onError((err) => {
-			console.error('[ad-provider] 激励视频错误', err)
-			setRewardAdError(err)
-			resolveRewardAd(false)
-		})
-	}
+	rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
+	rewardedVideoAd.onClose((res) => {
+		if (res && res.isEnded === true) {
+			setRewardAdError('')
+			resolveRewardAd(true)
+			return
+		}
+		setRewardAdError('请完整观看激励视频后再获取密码')
+		resolveRewardAd(false)
+	})
+	rewardedVideoAd.onError((err) => {
+		console.error('[ad-provider] 激励视频错误', err)
+		setRewardAdError(err)
+		resolveRewardAd(false)
+	})
 	return rewardedVideoAd
 	// #endif
 	// #ifndef MP-WEIXIN
@@ -97,7 +95,7 @@ export function showWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 		// #ifdef MP-WEIXIN
 		setRewardAdError('')
 		rewardedVideoAdResolve = resolve
-		const ad = ensureWechatRewardedVideoAd(adUnitId)
+		const ad = createWechatRewardedVideoAd(adUnitId)
 		if (!ad) {
 			resolveRewardAd(false)
 			return
@@ -172,11 +170,7 @@ export function getRewardAdFailMessage() {
 }
 
 export function preloadRewardAd() {
-	if (AUDIT_MODE || !USE_WECHAT_REWARD_AD) return
-	const ad = ensureWechatRewardedVideoAd()
-	if (ad) {
-		ad.load().catch(() => {})
-	}
+	// 微信要求激励视频广告在调用 show 的页面创建，App 启动时不预创建。
 }
 
 export function isMockAdMode() {
