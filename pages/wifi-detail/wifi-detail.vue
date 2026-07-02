@@ -256,7 +256,6 @@ async function onGetPassword() {
 	try {
 		lastAdTicket.value = ''
 		const adResult = await showRewardAdWithTicket()
-		console.log('[wifi-detail] 激励广告结果', adResult)
 		if (!adResult.completed || !adResult.ticket) {
 			uni.showModal({
 				title: '广告未播放',

@@ -17,6 +17,18 @@ export const USE_WECHAT_REWARD_AD = true
 export const WECHAT_AD_UNIT_ID = 'adunit-21d6d12eb155bd3b'
 
 const AD_INCOMPLETE_TOAST = '获取密码失败，请重试'
+const AD_DEBUG_LOG = false
+const WECHAT_REWARD_AD_ERROR_MESSAGES = {
+	1000: '广告系统异常，请稍后重试',
+	1001: '广告参数错误，请检查广告位配置',
+	1002: '激励广告位无效，请检查广告位 ID',
+	1003: '广告内部错误，请稍后重试',
+	1004: '暂无可播放广告，请稍后重试',
+	1005: '激励广告位审核中，暂时无法播放',
+	1006: '激励广告位审核未通过，请检查流量主后台',
+	1007: '激励广告位被封禁，请检查流量主后台',
+	1008: '激励广告位已关闭，请在流量主后台开启'
+}
 
 let rewardedVideoAd = null
 let rewardedVideoAdResolve = null
@@ -35,16 +47,38 @@ function resolveRewardAd(completed) {
 	}
 }
 
-function setRewardAdError(errOrMsg) {
-	if (!errOrMsg) {
-		lastRewardAdError = ''
-		return
+function logAdDebug(...args) {
+	if (AD_DEBUG_LOG) {
+		console.log(...args)
+	}
+}
+
+function formatRewardAdError(errOrMsg) {
+	if (!errOrMsg) return ''
+	if (typeof errOrMsg === 'object' && errOrMsg.errCode && WECHAT_REWARD_AD_ERROR_MESSAGES[errOrMsg.errCode]) {
+		return WECHAT_REWARD_AD_ERROR_MESSAGES[errOrMsg.errCode]
 	}
 	const msg =
 		typeof errOrMsg === 'string'
 			? errOrMsg
 			: (errOrMsg.errMsg || errOrMsg.message || JSON.stringify(errOrMsg))
-	lastRewardAdError = msg || AD_INCOMPLETE_TOAST
+	if (!msg) return AD_INCOMPLETE_TOAST
+	if (msg.indexOf('完整观看') !== -1) return msg
+	if (msg.indexOf('未配置') !== -1) return msg
+	if (msg.indexOf('no ad') !== -1 || msg.indexOf('广告拉取失败') !== -1) {
+		return WECHAT_REWARD_AD_ERROR_MESSAGES[1004]
+	}
+	const matchedCode = Object.keys(WECHAT_REWARD_AD_ERROR_MESSAGES).find((code) => msg.indexOf(code) !== -1)
+	if (matchedCode) return WECHAT_REWARD_AD_ERROR_MESSAGES[matchedCode]
+	return `激励广告异常：${msg}`
+}
+
+function setRewardAdError(errOrMsg) {
+	if (!errOrMsg) {
+		lastRewardAdError = ''
+		return
+	}
+	lastRewardAdError = formatRewardAdError(errOrMsg) || AD_INCOMPLETE_TOAST
 }
 
 function createWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
@@ -54,19 +88,19 @@ function createWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 		setRewardAdError('未配置激励广告位 ID')
 		return null
 	}
-		rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
-		rewardedVideoAd.onClose((res) => {
-			console.log('[ad-provider] 激励视频关闭回调', res)
-			if (res && res.isEnded === true) {
-				setRewardAdError('')
-				resolveRewardAd(true)
+	rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
+	rewardedVideoAd.onClose((res) => {
+		logAdDebug('[ad-provider] 激励视频关闭回调', res)
+		if (res && res.isEnded === true) {
+			setRewardAdError('')
+			resolveRewardAd(true)
 			return
 		}
 		setRewardAdError('请完整观看激励视频后再获取密码')
 		resolveRewardAd(false)
 	})
-		rewardedVideoAd.onError((err) => {
-			console.error('[ad-provider] 激励视频错误', err)
+	rewardedVideoAd.onError((err) => {
+		logAdDebug('[ad-provider] 激励视频错误', err)
 		setRewardAdError(err)
 		resolveRewardAd(false)
 	})
@@ -111,7 +145,8 @@ export function showWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 					.load()
 					.then(() => ad.show())
 					.catch((err) => {
-						console.error('[ad-provider] 激励视频加载失败', err)
+						logAdDebug('[ad-provider] 激励视频加载失败', err)
+						setRewardAdError(err)
 						resolveRewardAd(false)
 					})
 			})
@@ -139,7 +174,7 @@ export async function showRewardAd(hooks = {}) {
 		}
 		return await showMockRewardAd(hooks)
 	} catch (err) {
-		console.error('[ad-provider] showRewardAd 异常', err)
+		logAdDebug('[ad-provider] showRewardAd 异常', err)
 		setRewardAdError(err)
 		return false
 	}
@@ -154,7 +189,7 @@ export async function showRewardAdWithTicket(hooks = {}) {
 		ticket,
 		error: completed && ticket ? '' : getRewardAdFailMessage()
 	}
-	console.log('[ad-provider] 激励广告结果', result)
+	logAdDebug('[ad-provider] 激励广告结果', result)
 	return result
 }
 
@@ -173,16 +208,7 @@ export function toastAdIncomplete() {
 
 export function getRewardAdFailMessage() {
 	if (!lastRewardAdError) return AD_INCOMPLETE_TOAST
-	if (lastRewardAdError.indexOf('no ad') !== -1 || lastRewardAdError.indexOf('广告拉取失败') !== -1) {
-		return '暂无可播放广告，请稍后重试'
-	}
-	if (lastRewardAdError.indexOf('完整观看') !== -1) {
-		return lastRewardAdError
-	}
-	if (lastRewardAdError.indexOf('未配置') !== -1) {
-		return lastRewardAdError
-	}
-	return `激励广告异常：${lastRewardAdError}`
+	return lastRewardAdError
 }
 
 export function preloadRewardAd() {
