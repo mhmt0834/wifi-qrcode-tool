@@ -55,13 +55,13 @@ function ensureWechatRewardedVideoAd(adUnitId = WECHAT_AD_UNIT_ID) {
 	if (!rewardedVideoAd) {
 		rewardedVideoAd = wx.createRewardedVideoAd({ adUnitId })
 		rewardedVideoAd.onClose((res) => {
-			if (res && res.isEnded === false) {
-				setRewardAdError('请完整观看激励视频后再获取密码')
-				resolveRewardAd(false)
+			if (res && res.isEnded === true) {
+				setRewardAdError('')
+				resolveRewardAd(true)
 				return
 			}
-			setRewardAdError('')
-			resolveRewardAd(true)
+			setRewardAdError('请完整观看激励视频后再获取密码')
+			resolveRewardAd(false)
 		})
 		rewardedVideoAd.onError((err) => {
 			console.error('[ad-provider] 激励视频错误', err)
