@@ -63,7 +63,7 @@ onShow(() => checkExistingProfile())
 
 const benefits = ref([
 	{ icon: '/static/icons/benefit-wifi.png', title: 'WiFi共享', desc: '一键生成WiFi码，顾客扫码即连' },
-	{ icon: '/static/icons/benefit-revenue.png', title: '平台收益', desc: '用户连接WiFi，商家获得平台服务收益' },
+	{ icon: '/static/icons/benefit-revenue.png', title: '广告收益', desc: '用户连接WiFi，商家获得广告收益' },
 	{ icon: '/static/icons/benefit-target.png', title: '精准引流', desc: '连接WiFi后推送店铺优惠活动' },
 	{ icon: '/static/icons/benefit-chart.png', title: '数据看板', desc: '实时查看连接数据和收益报表' }
 ])

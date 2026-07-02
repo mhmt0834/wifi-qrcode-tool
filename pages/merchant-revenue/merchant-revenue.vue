@@ -47,7 +47,7 @@
 					<view class="revenue-item__title">{{ item.title }}</view>
 					<view class="revenue-item__time">{{ item.time }}</view>
 					<view v-if="item.type !== 'withdraw'" class="revenue-item__meta">
-						广告总收入 ¥{{ item.grossAmount }} · 平台 ¥{{ item.platformAmount }} · 代理预留 ¥{{ item.agentAmount }}
+						{{ item.wifiName || 'WiFi' }} · 商家收益已入账
 					</view>
 					<view v-else class="revenue-item__meta">
 						{{ formatWithdrawStatus(item.status) }}

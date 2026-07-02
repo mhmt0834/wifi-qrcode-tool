@@ -43,12 +43,6 @@ function getLogMerchantAmount(item) {
 	return Number(item.amount) || 0
 }
 
-function getLogGrossAmount(item) {
-	if (!item) return 0
-	if (item.grossAmount != null) return Number(item.grossAmount) || 0
-	return Number(item.amount) || 0
-}
-
 function calcHeat(viewCount, connectCount) {
 	const v = Number(viewCount) || 0
 	const c = Number(connectCount) || 0
@@ -1073,9 +1067,6 @@ async function handleMerchantRevenue(openid, range = '全部') {
 				type: item.type || 'ad',
 				status: item.status || '',
 				wifiName: item.wifiName || '',
-				grossAmount: getLogGrossAmount(item).toFixed(2),
-				platformAmount: (Number(item.platformAmount) || 0).toFixed(2),
-				agentAmount: (Number(item.agentAmount) || 0).toFixed(2),
 				merchantAmount: amount.toFixed(2)
 			}
 		})
@@ -1396,9 +1387,6 @@ async function handleRecordConnect(event, userOpenid) {
 			data: {
 				connectCount,
 				income: shares.merchantAmount,
-				grossAmount: shares.grossAmount,
-				platformAmount: shares.platformAmount,
-				agentAmount: shares.agentAmount,
 				merchantAmount: shares.merchantAmount
 			}
 		}
