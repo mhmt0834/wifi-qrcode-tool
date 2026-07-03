@@ -17,6 +17,7 @@ export const USE_WECHAT_REWARD_AD = true
 export const WECHAT_AD_UNIT_ID = 'adunit-21d6d12eb155bd3b'
 
 const AD_INCOMPLETE_TOAST = '获取密码失败，请重试'
+const AD_TEMP_UNAVAILABLE_TOAST = '广告暂时不可用，请稍后重试'
 const AD_DEBUG_LOG = false
 const WECHAT_REWARD_AD_ERROR_MESSAGES = {
 	1000: '广告系统异常，请稍后重试',
@@ -24,10 +25,10 @@ const WECHAT_REWARD_AD_ERROR_MESSAGES = {
 	1002: '激励广告位无效，请检查广告位 ID',
 	1003: '广告内部错误，请稍后重试',
 	1004: '暂无可播放广告，请稍后重试',
-	1005: '激励广告位审核中，暂时无法播放',
-	1006: '激励广告位审核未通过，请检查流量主后台',
-	1007: '激励广告位被封禁，请检查流量主后台',
-	1008: '激励广告位已关闭，请在流量主后台开启'
+	1005: AD_TEMP_UNAVAILABLE_TOAST,
+	1006: AD_TEMP_UNAVAILABLE_TOAST,
+	1007: AD_TEMP_UNAVAILABLE_TOAST,
+	1008: AD_TEMP_UNAVAILABLE_TOAST
 }
 
 let rewardedVideoAd = null
@@ -67,6 +68,9 @@ function formatRewardAdError(errOrMsg) {
 	if (msg.indexOf('未配置') !== -1) return msg
 	if (msg.indexOf('no ad') !== -1 || msg.indexOf('广告拉取失败') !== -1) {
 		return WECHAT_REWARD_AD_ERROR_MESSAGES[1004]
+	}
+	if (msg.indexOf('审核') !== -1 || msg.toLowerCase().indexOf('review') !== -1) {
+		return AD_TEMP_UNAVAILABLE_TOAST
 	}
 	const matchedCode = Object.keys(WECHAT_REWARD_AD_ERROR_MESSAGES).find((code) => msg.indexOf(code) !== -1)
 	if (matchedCode) return WECHAT_REWARD_AD_ERROR_MESSAGES[matchedCode]
