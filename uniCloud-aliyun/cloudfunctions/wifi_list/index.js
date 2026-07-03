@@ -30,7 +30,7 @@ const WITHDRAW_FREEZE_STATUSES = ['pending', 'approved', 'paid']
  * 也可以临时填入下方数组，部署云函数后生效。
  */
 const PLATFORM_ADMIN_OPENIDS = [
-	''
+	'ojV5m3aDoa3grCsHqwHZy-s2q5OI'
 ].filter(Boolean)
 
 function roundMoney(amount) {
