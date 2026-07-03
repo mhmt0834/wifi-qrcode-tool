@@ -15,6 +15,8 @@
 		"agentOpenid": { "bsonType": "string", "title": "代理OpenID" },
 		"userOpenid": { "bsonType": "string", "title": "连接用户OpenID" },
 		"connectTime": { "bsonType": "timestamp", "title": "连接时间" },
+		"adType": { "bsonType": "string", "title": "广告类型" },
+		"adUnitId": { "bsonType": "string", "title": "广告位ID" },
 		"income": { "bsonType": "double", "title": "商家本次收益(元)" },
 		"grossAmount": { "bsonType": "double", "title": "广告总收入(元)" },
 		"platformAmount": { "bsonType": "double", "title": "平台分成(元)" },

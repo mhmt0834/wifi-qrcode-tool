@@ -47,7 +47,7 @@
 					<view class="revenue-item__title">{{ item.title }}</view>
 					<view class="revenue-item__time">{{ item.time }}</view>
 					<view v-if="item.type !== 'withdraw'" class="revenue-item__meta">
-						{{ item.wifiName || 'WiFi' }} · 代理收益已入账
+						{{ item.wifiName || 'WiFi' }} · {{ formatAdRevenueStatus(item.status) }}
 					</view>
 					<view v-else class="revenue-item__meta">
 						{{ formatWithdrawStatus(item.status) }}
@@ -112,6 +112,11 @@ function formatWithdrawStatus(status) {
 	if (status === 'approved') return '提现已通过，等待打款'
 	if (status === 'rejected') return '提现已驳回'
 	return '提现申请处理中'
+}
+
+function formatAdRevenueStatus(status) {
+	if (status === 'settled') return '激励广告收益已结算'
+	return '激励广告预估收益，结算后更新'
 }
 
 function submitWithdraw() {

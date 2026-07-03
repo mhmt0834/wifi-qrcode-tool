@@ -21,6 +21,8 @@ const revenueLogCollection = db.collection('wifi_revenue_log')
 const agentRevenueCollection = db.collection('agent_revenue_log')
 
 const AD_GROSS_REVENUE_PER_CONNECT = 0.15
+const REWARDED_VIDEO_AD_UNIT_ID = 'adunit-21d6d12eb155bd3b'
+const REWARDED_VIDEO_AD_TYPE = 'rewarded_video'
 const PLATFORM_SHARE_RATE = 0.4
 const AGENT_SHARE_RATE = 0.3
 const MERCHANT_SHARE_RATE = 0.3
@@ -2022,6 +2024,8 @@ async function handleRecordConnect(event, userOpenid) {
 			agentOpenid,
 			userOpenid: userOpenid || '',
 			connectTime: now,
+			adType: REWARDED_VIDEO_AD_TYPE,
+			adUnitId: REWARDED_VIDEO_AD_UNIT_ID,
 			income: shares.merchantAmount,
 			grossAmount: shares.grossAmount,
 			platformAmount: shares.platformAmount,
@@ -2035,12 +2039,14 @@ async function handleRecordConnect(event, userOpenid) {
 			wifiName: doc.wifiName || '',
 			title: 'WiFi广告收益',
 			amount: shares.merchantAmount,
+			adType: REWARDED_VIDEO_AD_TYPE,
+			adUnitId: REWARDED_VIDEO_AD_UNIT_ID,
 			grossAmount: shares.grossAmount,
 			platformAmount: shares.platformAmount,
 			agentAmount: shares.agentAmount,
 			merchantAmount: shares.merchantAmount,
 			type: 'ad',
-			status: 'settled',
+			status: 'estimated',
 			createTime: now
 		})
 		if (agentOpenid) {
@@ -2051,12 +2057,14 @@ async function handleRecordConnect(event, userOpenid) {
 				wifiName: doc.wifiName || '',
 				title: '代理广告收益',
 				amount: shares.agentAmount,
+				adType: REWARDED_VIDEO_AD_TYPE,
+				adUnitId: REWARDED_VIDEO_AD_UNIT_ID,
 				grossAmount: shares.grossAmount,
 				platformAmount: shares.platformAmount,
 				agentAmount: shares.agentAmount,
 				merchantAmount: shares.merchantAmount,
 				type: 'ad',
-				status: 'settled',
+				status: 'estimated',
 				createTime: now
 			})
 		}

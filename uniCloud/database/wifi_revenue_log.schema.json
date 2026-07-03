@@ -14,6 +14,8 @@
 		"wifiName": { "bsonType": "string" },
 		"title": { "bsonType": "string" },
 		"amount": { "bsonType": "double" },
+		"adType": { "bsonType": "string" },
+		"adUnitId": { "bsonType": "string" },
 		"grossAmount": { "bsonType": "double" },
 		"platformAmount": { "bsonType": "double" },
 		"agentAmount": { "bsonType": "double" },
