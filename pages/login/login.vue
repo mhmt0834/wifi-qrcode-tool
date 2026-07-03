@@ -31,14 +31,34 @@
 					@choose-avatar="onChooseAvatar"
 					@update:nickname="formNickname = $event"
 				/>
-				<button class="wx-login-btn" :loading="loggingIn" @click="doLogin">完成登录</button>
+				<button
+					class="wx-login-btn"
+					:class="{ 'wx-login-btn--disabled': !agreementAccepted }"
+					:loading="loggingIn"
+					:disabled="!agreementAccepted || loggingIn"
+					@click="doLogin"
+				>
+					完成登录
+				</button>
 			</view>
 
-			<view class="agreement">
-				<text>登录即表示同意</text>
-				<text class="agreement-link" @click.stop="goAgreement">《用户协议》</text>
-				<text>和</text>
-				<text class="agreement-link" @click.stop="goPrivacy">《隐私政策》</text>
+			<view v-if="!isLogin" class="agreement">
+				<checkbox-group @change="onAgreementChange">
+					<label class="agreement-check">
+						<checkbox
+							class="agreement-checkbox"
+							value="accepted"
+							:checked="agreementAccepted"
+							color="#d4af37"
+						/>
+						<view class="agreement-text">
+							<text>我已阅读并同意</text>
+							<text class="agreement-link" @click.stop="goAgreement">《用户协议》</text>
+							<text>和</text>
+							<text class="agreement-link" @click.stop="goPrivacy">《隐私政策》</text>
+						</view>
+					</label>
+				</checkbox-group>
 			</view>
 		</view>
 	</view>
@@ -63,6 +83,7 @@ const formNickname = ref('')
 const formAvatar = ref('')
 const loggingIn = ref(false)
 const saving = ref(false)
+const agreementAccepted = ref(false)
 
 function syncUser() {
 	isLogin.value = checkLoggedIn()
@@ -77,8 +98,17 @@ function onChooseAvatar(url) {
 	formAvatar.value = url
 }
 
+function onAgreementChange(event) {
+	const values = event.detail && Array.isArray(event.detail.value) ? event.detail.value : []
+	agreementAccepted.value = values.includes('accepted')
+}
+
 async function doLogin() {
 	if (loggingIn.value) return
+	if (!agreementAccepted.value) {
+		uni.showToast({ title: '请先阅读并同意用户协议和隐私政策', icon: 'none' })
+		return
+	}
 	loggingIn.value = true
 	try {
 		await loginWithProfile({
@@ -117,6 +147,7 @@ function handleLogout() {
 	syncUser()
 	formNickname.value = ''
 	formAvatar.value = ''
+	agreementAccepted.value = false
 }
 
 function goAgreement() {
@@ -198,14 +229,38 @@ onShow(() => {
 }
 
 .agreement {
-	text-align: center;
+	display: flex;
+	justify-content: center;
 	font-size: 22rpx;
 	color: $text-muted;
 	margin-top: 40rpx;
 	line-height: 1.6;
 }
 
+.agreement-check {
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	max-width: 620rpx;
+}
+
+.agreement-checkbox {
+	transform: scale(0.78);
+	margin-top: 2rpx;
+	margin-right: 8rpx;
+}
+
+.agreement-text {
+	flex: 1;
+	text-align: left;
+}
+
 .agreement-link {
 	color: $gold;
+}
+
+.wx-login-btn--disabled {
+	opacity: 0.55;
+	box-shadow: none;
 }
 </style>
