@@ -8,8 +8,8 @@
 	},
 	"properties": {
 		"_id": {},
-		"merchantOpenid": { "bsonType": "string" },
 		"agentOpenid": { "bsonType": "string" },
+		"merchantOpenid": { "bsonType": "string" },
 		"wifiId": { "bsonType": "string" },
 		"wifiName": { "bsonType": "string" },
 		"title": { "bsonType": "string" },

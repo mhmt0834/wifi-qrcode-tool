@@ -116,6 +116,8 @@ export function mapWifiDocToListItem(doc, index = 0) {
 
 		merchantOpenid: doc.merchantOpenid || '',
 
+		agentOpenid: doc.agentOpenid || '',
+
 		canManage: !!doc.canManage,
 
 		canAssignMerchantOpenid: !!doc.canAssignMerchantOpenid,

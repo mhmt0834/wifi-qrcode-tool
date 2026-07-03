@@ -1,0 +1,21 @@
+{
+	"bsonType": "object",
+	"description": "代理资料",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": { "description": "文档 ID" },
+		"openid": { "bsonType": "string", "title": "代理OpenID" },
+		"name": { "bsonType": "string", "title": "代理姓名" },
+		"phone": { "bsonType": "string", "title": "联系电话" },
+		"city": { "bsonType": "string", "title": "代理城市" },
+		"wechat": { "bsonType": "string", "title": "提现微信账号" },
+		"status": { "bsonType": "string", "title": "状态", "enum": ["active", "disabled"] },
+		"createTime": { "bsonType": "timestamp", "title": "创建时间" },
+		"updateTime": { "bsonType": "timestamp", "title": "更新时间" }
+	}
+}

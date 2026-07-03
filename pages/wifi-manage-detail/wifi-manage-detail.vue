@@ -49,6 +49,10 @@
 						<text class="info-label">收益商家</text>
 						<text class="info-value info-value--openid">{{ detail.merchantOpenid || '未绑定' }}</text>
 					</view>
+					<view class="info-row">
+						<text class="info-label">归属代理</text>
+						<text class="info-value info-value--openid">{{ detail.agentOpenid || '无代理' }}</text>
+					</view>
 					<view class="stat-row">
 						<view class="stat-box">
 							<text class="stat-box__val">{{ detail.viewCount }}</text>

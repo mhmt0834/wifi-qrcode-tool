@@ -90,6 +90,10 @@
 					<image class="quick-item__icon" src="/static/icons/shop.png" mode="aspectFit" />
 					<text class="quick-item__text">{{ isMerchantJoined ? '商家中心' : '商家入驻' }}</text>
 				</view>
+				<view class="quick-item" @click="goAgentPage">
+					<image class="quick-item__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
+					<text class="quick-item__text">{{ isAgentJoined ? '代理中心' : '代理入驻' }}</text>
+				</view>
 				<view class="quick-item" @click="switchTab('/pages/nearby/nearby')">
 					<image class="quick-item__icon" src="/static/icons/nearby.png" mode="aspectFit" />
 					<text class="quick-item__text">附近WiFi</text>
@@ -123,6 +127,7 @@
 		MERCHANT_REFRESH_EVENT
 	} from '@/utils/cloud-config.js'
 	import { getMerchantProfile } from '@/utils/merchant-db.js'
+	import { getAgentProfile } from '@/utils/agent-db.js'
 
 	const wifiName = ref('')
 	const wifiPassword = ref('')
@@ -135,6 +140,7 @@
 	const creating = ref(false)
 	const pageLoading = ref(true)
 	const isMerchantJoined = ref(false)
+	const isAgentJoined = ref(false)
 	let loadedSessionVersion = -1
 
 	async function refreshMerchantEntry() {
@@ -143,6 +149,15 @@
 			isMerchantJoined.value = !!(profile && profile._id)
 		} catch (err) {
 			isMerchantJoined.value = false
+		}
+	}
+
+	async function refreshAgentEntry() {
+		try {
+			const profile = await getAgentProfile()
+			isAgentJoined.value = !!(profile && profile._id)
+		} catch (err) {
+			isAgentJoined.value = false
 		}
 	}
 
@@ -159,6 +174,21 @@
 		}
 		isMerchantJoined.value = false
 		goPage('/pages/merchant-join/merchant-join')
+	}
+
+	async function goAgentPage() {
+		try {
+			const profile = await getAgentProfile()
+			if (profile && profile._id) {
+				isAgentJoined.value = true
+				goPage('/pages/agent-dashboard/agent-dashboard')
+				return
+			}
+		} catch (err) {
+			// 查询失败时仍进入入驻页
+		}
+		isAgentJoined.value = false
+		goPage('/pages/agent-join/agent-join')
 	}
 
 	function applyWifiList({ list, fromCloud, error }) {
@@ -302,6 +332,7 @@
 
 	onShow(() => {
 		refreshMerchantEntry()
+		refreshAgentEntry()
 		if (loadedSessionVersion === getNearbySessionVersion() && wifiList.value.length > 0) {
 			return
 		}

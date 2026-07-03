@@ -15,8 +15,10 @@ const WIFI_DETAIL_PAGE = 'pages/wifi-detail/wifi-detail'
 const db = uniCloud.database()
 const wifiCollection = db.collection('wifi_list')
 const merchantCollection = db.collection('merchant_profile')
+const agentCollection = db.collection('agent_profile')
 const connectLogCollection = db.collection('wifi_connect_log')
 const revenueLogCollection = db.collection('wifi_revenue_log')
+const agentRevenueCollection = db.collection('agent_revenue_log')
 
 const AD_GROSS_REVENUE_PER_CONNECT = 0.15
 const PLATFORM_SHARE_RATE = 0.4
@@ -51,6 +53,55 @@ function getLogMerchantAmount(item) {
 	if (!item) return 0
 	if (item.merchantAmount != null) return Number(item.merchantAmount) || 0
 	return Number(item.amount) || 0
+}
+
+function getLogAgentAmount(item) {
+	if (!item) return 0
+	if (item.agentAmount != null) return Number(item.agentAmount) || 0
+	return Number(item.amount) || 0
+}
+
+async function getAgentProfileByOpenid(agentOpenid) {
+	const openid = normalizeOpenid(agentOpenid)
+	if (!openid) return null
+	const {
+		data
+	} = await agentCollection.where({
+		openid
+	}).limit(1).get()
+	return data && data.length ? data[0] : null
+}
+
+async function resolveAgentOpenidForCreator(creatorOpenid) {
+	const openid = normalizeOpenid(creatorOpenid)
+	if (!openid) return ''
+	const profile = await getAgentProfileByOpenid(openid)
+	if (!profile || profile.status === 'disabled') return ''
+	return openid
+}
+
+async function resolveAgentOpenidForWifi(doc) {
+	const explicitAgentOpenid = normalizeOpenid(doc && doc.agentOpenid)
+	if (explicitAgentOpenid) return explicitAgentOpenid
+	return await resolveAgentOpenidForCreator(doc && doc.creatorOpenid)
+}
+
+async function bindCreatorWifiToAgent(openid) {
+	const agentOpenid = normalizeOpenid(openid)
+	if (!agentOpenid) return
+	const {
+		data
+	} = await wifiCollection.where({
+		creatorOpenid: agentOpenid
+	}).limit(1000).get()
+	const rows = data || []
+	await Promise.all(rows.map((item) => {
+		if (normalizeOpenid(item.agentOpenid)) return Promise.resolve()
+		return wifiCollection.doc(item._id).update({
+			agentOpenid,
+			updateTime: Date.now()
+		})
+	}))
 }
 
 function getPlatformAdminOpenids() {
@@ -351,6 +402,7 @@ async function handleAdd(event, openid) {
 				data: null
 			}
 		}
+		const agentOpenid = await resolveAgentOpenidForCreator(openid)
 		const doc = {
 			wifiName: String(wifiName).trim(),
 			wifiPassword: String(wifiPassword).trim(),
@@ -362,6 +414,7 @@ async function handleAdd(event, openid) {
 			createTime: Date.now(),
 			creatorOpenid: openid,
 			merchantOpenid: normalizeOpenid(merchantOpenid),
+			agentOpenid,
 			viewCount: 0,
 			connectCount: 0,
 			heat: 0,
@@ -812,6 +865,7 @@ async function handleAssignMerchantOpenid(event, openid) {
 		}
 		await wifiCollection.doc(id).update({
 			merchantOpenid: nextMerchantOpenid,
+			agentOpenid: doc.agentOpenid || await resolveAgentOpenidForCreator(doc.creatorOpenid),
 			updateTime: Date.now()
 		})
 		const {
@@ -1215,6 +1269,352 @@ async function handleMerchantWithdrawRequest(event, openid) {
 	}
 }
 
+async function handleGetAgentProfile(openid) {
+	try {
+		if (!openid) return {
+			code: 401,
+			msg: '未登录',
+			data: null
+		}
+		const profile = await getAgentProfileByOpenid(openid)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: profile
+		}
+	} catch (err) {
+		console.error('[wifi_list] getAgentProfile 失败', err)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: null
+		}
+	}
+}
+
+async function handleSaveAgentProfile(event, openid) {
+	try {
+		if (!openid) return {
+			code: 401,
+			msg: '未登录',
+			data: null
+		}
+		const now = Date.now()
+		const payload = {
+			name: String((event && event.name) || '').trim(),
+			phone: String((event && event.phone) || '').trim(),
+			city: String((event && event.city) || '').trim(),
+			wechat: String((event && event.wechat) || '').trim(),
+			status: 'active',
+			updateTime: now
+		}
+		if (!payload.name || !payload.phone || !payload.city) {
+			return {
+				code: 400,
+				msg: '请填写姓名、手机号和城市',
+				data: null
+			}
+		}
+		const {
+			data: exist
+		} = await agentCollection.where({
+			openid
+		}).limit(1).get()
+		if (exist && exist.length) {
+			await agentCollection.doc(exist[0]._id).update(payload)
+			await bindCreatorWifiToAgent(openid)
+			return {
+				code: 0,
+				msg: 'ok',
+				data: {
+					...exist[0],
+					...payload,
+					openid
+				}
+			}
+		}
+		const addRes = await agentCollection.add({
+			openid,
+			...payload,
+			createTime: now
+		})
+		await bindCreatorWifiToAgent(openid)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				_id: addRes.id,
+				openid,
+				...payload,
+				createTime: now
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] saveAgentProfile 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '保存失败',
+			data: null
+		}
+	}
+}
+
+async function handleAgentWifiList(openid) {
+	try {
+		if (!openid) return {
+			code: 0,
+			msg: 'ok',
+			data: []
+		}
+		const {
+			data
+		} = await wifiCollection.where({
+			agentOpenid: openid
+		}).orderBy('createTime', 'desc').get()
+		const list = (data || []).map((item) => ({
+			_id: item._id,
+			name: item.wifiName || '',
+			shop: item.shopName || '',
+			merchantOpenid: item.merchantOpenid || '',
+			status: item.status || '在线',
+			viewCount: item.viewCount || 0,
+			connectCount: item.connectCount || 0,
+			createTime: item.createTime || 0
+		}))
+		return {
+			code: 0,
+			msg: 'ok',
+			data: list
+		}
+	} catch (err) {
+		console.error('[wifi_list] agentWifiList 失败', err)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: []
+		}
+	}
+}
+
+async function handleAgentStats(openid) {
+	try {
+		if (!openid) return {
+			code: 0,
+			msg: 'ok',
+			data: emptyAgentStats()
+		}
+		const todayStart = startOfTodayMs()
+		const {
+			data: wifiRows
+		} = await wifiCollection.where({
+			agentOpenid: openid
+		}).get()
+		const merchantSet = new Set()
+		let connectCount = 0
+		;(wifiRows || []).forEach((item) => {
+			connectCount += item.connectCount || 0
+			if (item.merchantOpenid) merchantSet.add(item.merchantOpenid)
+		})
+		const {
+			data: revenueRows
+		} = await agentRevenueCollection.where({
+			agentOpenid: openid
+		}).limit(1000).get()
+		let todayRevenue = 0
+		let totalRevenue = 0
+		;(revenueRows || []).forEach((item) => {
+			if (item.type === 'withdraw') return
+			const amount = getLogAgentAmount(item)
+			totalRevenue += amount
+			if ((item.createTime || 0) >= todayStart) todayRevenue += amount
+		})
+		const withdrawTotal = calcWithdrawFrozenAmount(revenueRows || [])
+		const pendingWithdraw = calcWithdrawProcessingAmount(revenueRows || [])
+		const {
+			total: todayConnectCount
+		} = await connectLogCollection.where({
+			agentOpenid: openid,
+			connectTime: db.command.gte(todayStart)
+		}).count()
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				wifiCount: (wifiRows || []).length,
+				merchantCount: merchantSet.size,
+				connectCount,
+				todayConnectCount: todayConnectCount || 0,
+				todayRevenue: todayRevenue.toFixed(2),
+				totalRevenue: totalRevenue.toFixed(2),
+				withdrawable: Math.max(0, totalRevenue - withdrawTotal).toFixed(2),
+				pendingWithdraw: pendingWithdraw.toFixed(2)
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] agentStats 失败', err)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: emptyAgentStats()
+		}
+	}
+}
+
+function emptyAgentStats() {
+	return {
+		wifiCount: 0,
+		merchantCount: 0,
+		connectCount: 0,
+		todayConnectCount: 0,
+		todayRevenue: '0.00',
+		totalRevenue: '0.00',
+		withdrawable: '0.00',
+		pendingWithdraw: '0.00'
+	}
+}
+
+async function handleAgentRevenue(openid, range = '全部') {
+	try {
+		if (!openid) return {
+			code: 0,
+			msg: 'ok',
+			data: emptyAgentRevenue()
+		}
+		const {
+			data
+		} = await agentRevenueCollection
+			.where({
+				agentOpenid: openid
+			})
+			.orderBy('createTime', 'desc')
+			.limit(200)
+			.get()
+		const all = data || []
+		const filtered = filterRevenueByRange(all, range)
+		const list = filtered.map((item) => {
+			const amount = item.type === 'withdraw' ? (Number(item.amount) || 0) : getLogAgentAmount(item)
+			return {
+				_id: item._id,
+				title: item.title || '代理广告收益',
+				time: formatDateTime(item.createTime),
+				amount: amount.toFixed(2),
+				type: item.type || 'ad',
+				status: item.status || '',
+				wifiName: item.wifiName || '',
+				merchantOpenid: item.merchantOpenid || '',
+				agentAmount: amount.toFixed(2)
+			}
+		})
+		const sumAll = all.reduce((s, item) => {
+			if (item.type === 'withdraw') return s
+			return s + getLogAgentAmount(item)
+		}, 0)
+		const withdrawTotal = calcWithdrawFrozenAmount(all)
+		const pendingWithdraw = calcWithdrawProcessingAmount(all)
+		const todayRevenue = all.reduce((s, item) => {
+			if (item.type === 'withdraw' || (item.createTime || 0) < startOfTodayMs()) return s
+			return s + getLogAgentAmount(item)
+		}, 0)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				total: sumAll.toFixed(2),
+				today: todayRevenue.toFixed(2),
+				withdrawable: Math.max(0, sumAll - withdrawTotal).toFixed(2),
+				pendingWithdraw: pendingWithdraw.toFixed(2),
+				list
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] agentRevenue 失败', err)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: emptyAgentRevenue()
+		}
+	}
+}
+
+function emptyAgentRevenue() {
+	return {
+		total: '0.00',
+		today: '0.00',
+		withdrawable: '0.00',
+		pendingWithdraw: '0.00',
+		list: []
+	}
+}
+
+async function handleAgentWithdrawRequest(event, openid) {
+	try {
+		if (!openid) return {
+			code: 401,
+			msg: '未登录',
+			data: null
+		}
+		const profile = await getAgentProfileByOpenid(openid)
+		if (!profile || profile.status === 'disabled') return {
+			code: 403,
+			msg: '请先完成代理入驻',
+			data: null
+		}
+		const requestedAmount = roundMoney(event && event.amount)
+		if (!requestedAmount || requestedAmount <= 0) return {
+			code: 400,
+			msg: '提现金额错误',
+			data: null
+		}
+		const {
+			data
+		} = await agentRevenueCollection.where({
+			agentOpenid: openid
+		}).limit(1000).get()
+		const rows = data || []
+		const totalRevenue = rows.reduce((s, item) => {
+			if (item.type === 'withdraw') return s
+			return s + getLogAgentAmount(item)
+		}, 0)
+		const withdrawTotal = calcWithdrawFrozenAmount(rows)
+		const withdrawable = roundMoney(Math.max(0, totalRevenue - withdrawTotal))
+		if (requestedAmount > withdrawable) {
+			return {
+				code: 400,
+				msg: '可提现余额不足',
+				data: {
+					withdrawable: withdrawable.toFixed(2)
+				}
+			}
+		}
+		const now = Date.now()
+		const addRes = await agentRevenueCollection.add({
+			agentOpenid: openid,
+			title: '代理提现申请',
+			amount: requestedAmount,
+			type: 'withdraw',
+			status: 'pending',
+			createTime: now
+		})
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				_id: addRes.id,
+				amount: requestedAmount.toFixed(2),
+				status: 'pending',
+				createTime: now
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] agentWithdrawRequest 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '提现申请失败',
+			data: null
+		}
+	}
+}
+
 async function handleCheckPlatformAdmin(openid) {
 	return {
 		code: 0,
@@ -1246,6 +1646,10 @@ async function getMerchantProfileByOpenid(merchantOpenid) {
 	return data && data.length ? data[0] : null
 }
 
+function getWithdrawCollection(accountType) {
+	return accountType === 'agent' ? agentRevenueCollection : revenueLogCollection
+}
+
 async function handleAdminWithdrawList(event, openid) {
 	try {
 		const denied = rejectNonAdmin(openid)
@@ -1259,20 +1663,28 @@ async function handleAdminWithdrawList(event, openid) {
 			query.status = status
 		}
 		const {
-			data
+			data: merchantRows
 		} = await revenueLogCollection
 			.where(query)
 			.orderBy('createTime', 'desc')
 			.limit(limit)
 			.get()
-		const rows = data || []
-		const list = await Promise.all(rows.map(async (item) => {
+		const {
+			data: agentRows
+		} = await agentRevenueCollection
+			.where(query)
+			.orderBy('createTime', 'desc')
+			.limit(limit)
+			.get()
+		const merchantList = await Promise.all((merchantRows || []).map(async (item) => {
 			const profile = await getMerchantProfileByOpenid(item.merchantOpenid)
 			return {
 				_id: item._id,
-				merchantOpenid: item.merchantOpenid || '',
-				merchantName: (profile && profile.shopName) || '未填写店铺',
-				merchantPhone: (profile && profile.phone) || '',
+				accountType: 'merchant',
+				accountLabel: '商家',
+				accountOpenid: item.merchantOpenid || '',
+				accountName: (profile && profile.shopName) || '未填写店铺',
+				accountPhone: (profile && profile.phone) || '',
 				wechat: (profile && profile.wechat) || '',
 				amount: (Number(item.amount) || 0).toFixed(2),
 				status: item.status || 'pending',
@@ -1283,6 +1695,28 @@ async function handleAdminWithdrawList(event, openid) {
 				payTime: item.payTime ? formatDateTime(item.payTime) : ''
 			}
 		}))
+		const agentList = await Promise.all((agentRows || []).map(async (item) => {
+			const profile = await getAgentProfileByOpenid(item.agentOpenid)
+			return {
+				_id: item._id,
+				accountType: 'agent',
+				accountLabel: '代理',
+				accountOpenid: item.agentOpenid || '',
+				accountName: (profile && profile.name) || '未填写代理',
+				accountPhone: (profile && profile.phone) || '',
+				wechat: (profile && profile.wechat) || '',
+				amount: (Number(item.amount) || 0).toFixed(2),
+				status: item.status || 'pending',
+				time: formatDateTime(item.createTime),
+				createTime: item.createTime || 0,
+				auditNote: item.auditNote || '',
+				auditTime: item.auditTime ? formatDateTime(item.auditTime) : '',
+				payTime: item.payTime ? formatDateTime(item.payTime) : ''
+			}
+		}))
+		const list = [...merchantList, ...agentList]
+			.sort((a, b) => (b.createTime || 0) - (a.createTime || 0))
+			.slice(0, limit)
 		return {
 			code: 0,
 			msg: 'ok',
@@ -1307,6 +1741,7 @@ async function handleAdminAuditWithdraw(event, openid) {
 		const denied = rejectNonAdmin(openid)
 		if (denied) return denied
 		const withdrawId = String((event && event.withdrawId) || '').trim()
+		const accountType = String((event && event.accountType) || 'merchant').trim() === 'agent' ? 'agent' : 'merchant'
 		const auditAction = String((event && event.auditAction) || '').trim()
 		const auditNote = String((event && event.auditNote) || '').trim()
 		if (!withdrawId) return {
@@ -1316,7 +1751,7 @@ async function handleAdminAuditWithdraw(event, openid) {
 		}
 		const {
 			data
-		} = await revenueLogCollection.doc(withdrawId).get()
+		} = await getWithdrawCollection(accountType).doc(withdrawId).get()
 		if (!data || !data.length || data[0].type !== 'withdraw') {
 			return {
 				code: 404,
@@ -1375,12 +1810,13 @@ async function handleAdminAuditWithdraw(event, openid) {
 				data: null
 			}
 		}
-		await revenueLogCollection.doc(withdrawId).update(payload)
+		await getWithdrawCollection(accountType).doc(withdrawId).update(payload)
 		return {
 			code: 0,
 			msg: 'ok',
 			data: {
 				_id: withdrawId,
+				accountType,
 				status: payload.status
 			}
 		}
@@ -1559,17 +1995,23 @@ async function handleRecordConnect(event, userOpenid) {
 		}
 		const now = Date.now()
 		const shares = calcRevenueShares()
+		const agentOpenid = await resolveAgentOpenidForWifi(doc)
 		const connectCount = (doc.connectCount || 0) + 1
 		const viewCount = doc.viewCount || 0
 		const heat = calcHeat(viewCount, connectCount)
-		await wifiCollection.doc(wifiId).update({
+		const updatePayload = {
 			connectCount,
 			heat
-		})
+		}
+		if (agentOpenid && !normalizeOpenid(doc.agentOpenid)) {
+			updatePayload.agentOpenid = agentOpenid
+		}
+		await wifiCollection.doc(wifiId).update(updatePayload)
 		await connectLogCollection.add({
 			wifiId,
 			wifiName: doc.wifiName || '',
 			merchantOpenid,
+			agentOpenid,
 			userOpenid: userOpenid || '',
 			connectTime: now,
 			income: shares.merchantAmount,
@@ -1580,6 +2022,7 @@ async function handleRecordConnect(event, userOpenid) {
 		})
 		await revenueLogCollection.add({
 			merchantOpenid,
+			agentOpenid,
 			wifiId,
 			wifiName: doc.wifiName || '',
 			title: 'WiFi广告收益',
@@ -1592,6 +2035,23 @@ async function handleRecordConnect(event, userOpenid) {
 			status: 'settled',
 			createTime: now
 		})
+		if (agentOpenid) {
+			await agentRevenueCollection.add({
+				agentOpenid,
+				merchantOpenid,
+				wifiId,
+				wifiName: doc.wifiName || '',
+				title: '代理广告收益',
+				amount: shares.agentAmount,
+				grossAmount: shares.grossAmount,
+				platformAmount: shares.platformAmount,
+				agentAmount: shares.agentAmount,
+				merchantAmount: shares.merchantAmount,
+				type: 'ad',
+				status: 'settled',
+				createTime: now
+			})
+		}
 		return {
 			code: 0,
 			msg: 'ok',
@@ -1667,6 +2127,12 @@ exports.main = async (event, context) => {
 		'merchantConnects',
 		'merchantRevenue',
 		'merchantWithdrawRequest',
+		'getAgentProfile',
+		'saveAgentProfile',
+		'agentWifiList',
+		'agentStats',
+		'agentRevenue',
+		'agentWithdrawRequest',
 		'checkPlatformAdmin',
 		'adminWithdrawList',
 		'adminAuditWithdraw',
@@ -1707,6 +2173,18 @@ exports.main = async (event, context) => {
 				return await handleMerchantRevenue(openid, event && event.range)
 			case 'merchantWithdrawRequest':
 				return await handleMerchantWithdrawRequest(event, openid)
+			case 'getAgentProfile':
+				return await handleGetAgentProfile(openid)
+			case 'saveAgentProfile':
+				return await handleSaveAgentProfile(event, openid)
+			case 'agentWifiList':
+				return await handleAgentWifiList(openid)
+			case 'agentStats':
+				return await handleAgentStats(openid)
+			case 'agentRevenue':
+				return await handleAgentRevenue(openid, event && event.range)
+			case 'agentWithdrawRequest':
+				return await handleAgentWithdrawRequest(event, openid)
 			case 'checkPlatformAdmin':
 				return await handleCheckPlatformAdmin(openid)
 			case 'adminWithdrawList':

@@ -50,10 +50,11 @@ export async function getAdminWithdrawList(status = 'pending') {
 	return (result.data && result.data.list) || []
 }
 
-export async function auditWithdraw({ withdrawId, auditAction, auditNote = '' }) {
+export async function auditWithdraw({ withdrawId, accountType = 'merchant', auditAction, auditNote = '' }) {
 	const result = await callAdminCloud({
 		action: 'adminAuditWithdraw',
 		withdrawId,
+		accountType,
 		auditAction,
 		auditNote
 	})

@@ -83,6 +83,11 @@
 			"title": "商家OpenID",
 			"description": "真正拥有该 WiFi 收益与商家后台管理权的商家 openid；收益统计、连接记录、分润均以此字段为准"
 		},
+		"agentOpenid": {
+			"bsonType": "string",
+			"title": "代理OpenID",
+			"description": "代理归属 openid；代理收益统计和提现以此字段为准"
+		},
 		"viewCount": {
 			"bsonType": "int",
 			"title": "浏览次数",

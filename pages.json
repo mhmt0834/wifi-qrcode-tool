@@ -167,6 +167,35 @@
 			}
 		},
 		{
+			"path": "pages/agent-join/agent-join",
+			"style": {
+				"navigationBarTitleText": "代理入驻",
+				"navigationBarBackgroundColor": "#C80000",
+				"navigationBarTextStyle": "white",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/agent-dashboard/agent-dashboard",
+			"style": {
+				"navigationBarTitleText": "代理中心",
+				"navigationBarBackgroundColor": "#C80000",
+				"navigationBarTextStyle": "white",
+				"navigationStyle": "custom",
+				"enablePullDownRefresh": true
+			}
+		},
+		{
+			"path": "pages/agent-revenue/agent-revenue",
+			"style": {
+				"navigationBarTitleText": "代理收益",
+				"navigationBarBackgroundColor": "#C80000",
+				"navigationBarTextStyle": "white",
+				"navigationStyle": "custom",
+				"enablePullDownRefresh": true
+			}
+		},
+		{
 			"path": "pages/platform-withdraw/platform-withdraw",
 			"style": {
 				"navigationBarTitleText": "提现审核",

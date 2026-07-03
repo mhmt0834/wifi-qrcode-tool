@@ -1,6 +1,6 @@
 {
 	"bsonType": "object",
-	"description": "商家收益明细",
+	"description": "代理收益明细",
 	"permission": {
 		"read": false,
 		"create": false,
@@ -9,15 +9,15 @@
 	},
 	"properties": {
 		"_id": { "description": "文档 ID" },
-		"merchantOpenid": { "bsonType": "string", "title": "商家OpenID" },
 		"agentOpenid": { "bsonType": "string", "title": "代理OpenID" },
+		"merchantOpenid": { "bsonType": "string", "title": "商家OpenID" },
 		"wifiId": { "bsonType": "string", "title": "WiFi文档ID" },
 		"wifiName": { "bsonType": "string", "title": "WiFi名称" },
 		"title": { "bsonType": "string", "title": "收益标题" },
-		"amount": { "bsonType": "double", "title": "商家金额/提现金额(元)" },
+		"amount": { "bsonType": "double", "title": "代理金额/提现金额(元)" },
 		"grossAmount": { "bsonType": "double", "title": "广告总收入(元)" },
 		"platformAmount": { "bsonType": "double", "title": "平台分成(元)" },
-		"agentAmount": { "bsonType": "double", "title": "代理预留分成(元)" },
+		"agentAmount": { "bsonType": "double", "title": "代理分成(元)" },
 		"merchantAmount": { "bsonType": "double", "title": "商家分成(元)" },
 		"type": { "bsonType": "string", "title": "类型", "enum": ["ad", "withdraw"] },
 		"status": { "bsonType": "string", "title": "状态", "enum": ["settled", "pending", "approved", "paid", "rejected"] },

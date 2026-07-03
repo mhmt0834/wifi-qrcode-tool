@@ -37,23 +37,26 @@
 							<view class="withdraw-card__amount">¥{{ item.amount }}</view>
 							<view class="withdraw-card__time">{{ item.time }}</view>
 						</view>
-						<text :class="['status-tag', 'status-tag--' + item.status]">{{ statusText(item.status) }}</text>
+						<view class="status-wrap">
+							<text class="account-tag">{{ item.accountLabel || '账户' }}</text>
+							<text :class="['status-tag', 'status-tag--' + item.status]">{{ statusText(item.status) }}</text>
+						</view>
 					</view>
 
 					<view class="withdraw-card__body">
 						<view class="info-row">
-							<text class="info-row__label">商家</text>
-							<text class="info-row__value">{{ item.merchantName }}</text>
+							<text class="info-row__label">账户</text>
+							<text class="info-row__value">{{ item.accountName }}</text>
 						</view>
 						<view class="info-row">
 							<text class="info-row__label">OPENID</text>
-							<text class="info-row__value info-row__value--openid" selectable @click="copyText(item.merchantOpenid)">
-								{{ item.merchantOpenid || '-' }}
+							<text class="info-row__value info-row__value--openid" selectable @click="copyText(item.accountOpenid)">
+								{{ item.accountOpenid || '-' }}
 							</text>
 						</view>
 						<view class="info-row">
 							<text class="info-row__label">电话</text>
-							<text class="info-row__value">{{ item.merchantPhone || '-' }}</text>
+							<text class="info-row__value">{{ item.accountPhone || '-' }}</text>
 						</view>
 						<view class="info-row">
 							<text class="info-row__label">微信</text>
@@ -177,6 +180,7 @@ function confirmAction(item, auditAction) {
 			try {
 				await auditWithdraw({
 					withdrawId: item._id,
+					accountType: item.accountType || 'merchant',
 					auditAction,
 					auditNote: auditNotes.value[item._id] || ''
 				})
@@ -260,7 +264,6 @@ onShow(async () => {
 }
 
 .status-tag {
-	align-self: flex-start;
 	padding: 8rpx 18rpx;
 	border-radius: 24rpx;
 	font-size: 22rpx;
@@ -276,6 +279,22 @@ onShow(async () => {
 		background: rgba(255, 107, 107, 0.14);
 		color: #ff6b6b;
 	}
+}
+
+.status-wrap {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 10rpx;
+	flex-shrink: 0;
+}
+
+.account-tag {
+	padding: 6rpx 14rpx;
+	border-radius: 20rpx;
+	font-size: 22rpx;
+	color: $text-secondary;
+	background: rgba(255, 255, 255, 0.06);
 }
 
 .info-row {

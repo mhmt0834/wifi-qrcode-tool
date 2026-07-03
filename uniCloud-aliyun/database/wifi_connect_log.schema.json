@@ -12,6 +12,7 @@
 		"wifiId": { "bsonType": "string", "title": "WiFi文档ID" },
 		"wifiName": { "bsonType": "string", "title": "WiFi名称" },
 		"merchantOpenid": { "bsonType": "string", "title": "商家OpenID" },
+		"agentOpenid": { "bsonType": "string", "title": "代理OpenID" },
 		"userOpenid": { "bsonType": "string", "title": "连接用户OpenID" },
 		"connectTime": { "bsonType": "timestamp", "title": "连接时间" },
 		"income": { "bsonType": "double", "title": "商家本次收益(元)" },

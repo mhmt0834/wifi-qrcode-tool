@@ -11,6 +11,7 @@
 		"wifiId": { "bsonType": "string" },
 		"wifiName": { "bsonType": "string" },
 		"merchantOpenid": { "bsonType": "string" },
+		"agentOpenid": { "bsonType": "string" },
 		"userOpenid": { "bsonType": "string" },
 		"connectTime": { "bsonType": "timestamp" },
 		"income": { "bsonType": "double" },

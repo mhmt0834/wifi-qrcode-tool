@@ -1,0 +1,20 @@
+{
+	"bsonType": "object",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": {},
+		"openid": { "bsonType": "string" },
+		"name": { "bsonType": "string" },
+		"phone": { "bsonType": "string" },
+		"city": { "bsonType": "string" },
+		"wechat": { "bsonType": "string" },
+		"status": { "bsonType": "string" },
+		"createTime": { "bsonType": "timestamp" },
+		"updateTime": { "bsonType": "timestamp" }
+	}
+}
