@@ -26,7 +26,7 @@
 
 				<view class="empty-state__text">暂无WiFi，快去创建一个吧</view>
 
-				<button class="btn-primary" style="margin-top:30rpx" @click="goCreate">创建WiFi</button>
+				<button v-if="isPlatformAdminUser" class="btn-primary" style="margin-top:30rpx" @click="goCreate">创建WiFi</button>
 
 			</view>
 
@@ -96,7 +96,7 @@
 
 
 
-			<button v-if="wifiList.length > 0" class="btn-primary btn-block" style="margin-top:30rpx" @click="goCreate">
+			<button v-if="wifiList.length > 0 && isPlatformAdminUser" class="btn-primary btn-block" style="margin-top:30rpx" @click="goCreate">
 
 				+ 创建新WiFi
 
@@ -123,12 +123,14 @@ import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
 import { getMyWifiList } from '@/utils/wifi-db.js'
 
 import { MY_WIFI_REFRESH_EVENT } from '@/utils/cloud-config.js'
+import { checkPlatformAdminRole } from '@/utils/admin-db.js'
 
 
 
 const wifiList = ref([])
 
 const listLoading = ref(false)
+const isPlatformAdminUser = ref(false)
 
 let myWifiLoaded = false
 
@@ -190,6 +192,10 @@ function formatTime(ts) {
 
 
 function goCreate() {
+	if (!isPlatformAdminUser.value) {
+		uni.showToast({ title: '仅管理员可创建 WiFi', icon: 'none' })
+		return
+	}
 
 	uni.navigateTo({ url: '/pages/create-wifi/create-wifi' })
 
@@ -219,7 +225,12 @@ function onMyWifiRefresh() {
 
 
 
-onShow(() => loadMyWifi(false))
+onShow(() => {
+	loadMyWifi(false)
+	checkPlatformAdminRole().then((isAdmin) => {
+		isPlatformAdminUser.value = isAdmin
+	})
+})
 
 onMounted(() => uni.$on(MY_WIFI_REFRESH_EVENT, onMyWifiRefresh))
 

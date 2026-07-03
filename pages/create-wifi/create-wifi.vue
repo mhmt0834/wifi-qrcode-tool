@@ -2,6 +2,14 @@
 	<view class="page-container">
 		<custom-navbar title="创建WiFi" :show-back="true" />
 		<view class="page-content">
+			<view v-if="checkingAdmin" class="list-loading">加载中...</view>
+
+			<view v-else-if="!isPlatformAdminUser" class="empty-state">
+				<image class="empty-state__icon" src="/static/icons/wifi.png" mode="aspectFit" />
+				<view class="empty-state__text">创建 WiFi 仅限平台管理员使用</view>
+			</view>
+
+			<template v-else>
 			<view class="hero-card">
 				<view class="hero-card__title">创建WiFi码</view>
 				<view class="hero-card__desc">保存到 uniCloud 云数据库并共享给附近用户</view>
@@ -47,18 +55,20 @@
 			<button class="btn-primary btn-block" :loading="submitting" @click="submitWifi">
 				{{ createdId ? '继续创建新的' : '保存到云数据库' }}
 			</button>
+			</template>
 		</view>
 	</view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
 import { addWifi } from '@/utils/wifi-db.js'
 import { invalidateNearbyCache } from '@/utils/wifi-nearby-loader.js'
 import { getUserLocation } from '@/utils/location.js'
 import { WIFI_LIST_REFRESH_EVENT, MERCHANT_REFRESH_EVENT, MY_WIFI_REFRESH_EVENT } from '@/utils/cloud-config.js'
+import { checkPlatformAdminRole } from '@/utils/admin-db.js'
 
 /** 表单字段与 wifi_list 集合字段对应 */
 const form = ref({
@@ -73,6 +83,8 @@ const latitude = ref(null)
 const longitude = ref(null)
 const submitting = ref(false)
 const createdId = ref('')
+const checkingAdmin = ref(true)
+const isPlatformAdminUser = ref(false)
 
 const locationText = computed(() => {
 	if (latitude.value == null) return '定位中...'
@@ -81,8 +93,20 @@ const locationText = computed(() => {
 
 onLoad(async (options) => {
 	if (options.name) form.value.wifiName = decodeURIComponent(options.name)
-	await refreshLocation()
+	await refreshAdminRole()
+	if (isPlatformAdminUser.value) await refreshLocation()
 })
+
+onShow(() => refreshAdminRole())
+
+async function refreshAdminRole() {
+	checkingAdmin.value = true
+	try {
+		isPlatformAdminUser.value = await checkPlatformAdminRole()
+	} finally {
+		checkingAdmin.value = false
+	}
+}
 
 /** 获取当前 GCJ-02 坐标，写入新增记录 */
 async function refreshLocation() {
@@ -100,6 +124,10 @@ async function refreshLocation() {
  * 云函数会自动写入 creatorOpenid 与 createTime
  */
 async function submitWifi() {
+	if (!isPlatformAdminUser.value) {
+		uni.showToast({ title: '仅管理员可创建 WiFi', icon: 'none' })
+		return
+	}
 	if (!form.value.wifiName || !form.value.wifiPassword || !form.value.shopName) {
 		uni.showToast({ title: '请填写完整 WiFi 信息', icon: 'none' })
 		return

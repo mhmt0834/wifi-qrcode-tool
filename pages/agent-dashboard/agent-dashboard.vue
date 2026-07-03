@@ -61,9 +61,9 @@
 							<text class="menu-item__text">代理收益</text>
 							<text class="list-item__arrow">›</text>
 						</view>
-						<view class="menu-item" @click="goPage('/pages/create-wifi/create-wifi')">
+						<view class="menu-item" @click="goUpload">
 							<image class="menu-item__icon" src="/static/icons/create.png" mode="aspectFit" />
-							<text class="menu-item__text">添加商家 WiFi</text>
+							<text class="menu-item__text">上传商家 WiFi</text>
 							<text class="list-item__arrow">›</text>
 						</view>
 						<view class="menu-item" @click="goJoin">
@@ -131,6 +131,10 @@ async function loadDashboard() {
 
 function goPage(url) {
 	uni.navigateTo({ url })
+}
+
+function goUpload() {
+	uni.switchTab({ url: '/pages/upload/index' })
 }
 
 function goJoin() {

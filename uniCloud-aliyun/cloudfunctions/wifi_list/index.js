@@ -403,6 +403,14 @@ async function handleAdd(event, openid) {
 			}
 		}
 		const agentOpenid = await resolveAgentOpenidForCreator(openid)
+		if (!isPlatformAdmin(openid) && !agentOpenid) {
+			return {
+				code: 403,
+				msg: '请先完成代理入驻，或联系平台管理员添加 WiFi',
+				openid,
+				data: null
+			}
+		}
 		const doc = {
 			wifiName: String(wifiName).trim(),
 			wifiPassword: String(wifiPassword).trim(),

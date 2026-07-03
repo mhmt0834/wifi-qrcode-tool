@@ -48,7 +48,7 @@
 				</view>
 			</view>
 
-			<button class="btn-primary btn-block" style="margin-top:30rpx" @click="goCreate">+ 添加WiFi</button>
+			<button v-if="isPlatformAdminUser" class="btn-primary btn-block" style="margin-top:30rpx" @click="goCreate">+ 添加WiFi</button>
 		</view>
 	</view>
 </template>
@@ -60,22 +60,34 @@ import { onShow } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
 import { getMerchantWifiList } from '@/utils/merchant-db.js'
 import { MERCHANT_REFRESH_EVENT } from '@/utils/cloud-config.js'
+import { checkPlatformAdminRole } from '@/utils/admin-db.js'
 
 const wifiList = ref([])
 const listLoading = ref(false)
+const isPlatformAdminUser = ref(false)
 
 async function loadList() {
 	listLoading.value = true
 	try {
-		wifiList.value = await getMerchantWifiList()
+		const [list, isAdmin] = await Promise.all([
+			getMerchantWifiList(),
+			checkPlatformAdminRole()
+		])
+		wifiList.value = list
+		isPlatformAdminUser.value = isAdmin
 	} catch (err) {
 		wifiList.value = []
+		isPlatformAdminUser.value = false
 	} finally {
 		listLoading.value = false
 	}
 }
 
 function goCreate() {
+	if (!isPlatformAdminUser.value) {
+		uni.showToast({ title: '仅管理员可创建 WiFi', icon: 'none' })
+		return
+	}
 	uni.navigateTo({ url: '/pages/create-wifi/create-wifi' })
 }
 

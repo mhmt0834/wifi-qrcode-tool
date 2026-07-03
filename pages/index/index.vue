@@ -21,7 +21,7 @@
 				<view class="hero-card__desc">中国科技 · 让人民生活更方便</view>
 			</view>
 
-			<view class="card">
+			<view v-if="isPlatformAdminUser" class="card">
 				<view class="card__title">快速创建WiFi码</view>
 				<input v-model="wifiName" class="input-field" placeholder="请输入WiFi名称" />
 				<input v-model="wifiPassword" class="input-field" password placeholder="请输入WiFi密码" />
@@ -78,7 +78,7 @@
 					<image class="quick-item__icon" src="/static/icons/upload.png" mode="aspectFit" />
 					<text class="quick-item__text">上传共享WiFi</text>
 				</view>
-				<view class="quick-item" @click="goPage('/pages/create-wifi/create-wifi')">
+				<view v-if="isPlatformAdminUser" class="quick-item" @click="goPage('/pages/create-wifi/create-wifi')">
 					<image class="quick-item__icon" src="/static/icons/create.png" mode="aspectFit" />
 					<text class="quick-item__text">创建WiFi</text>
 				</view>
@@ -128,6 +128,7 @@
 	} from '@/utils/cloud-config.js'
 	import { getMerchantProfile } from '@/utils/merchant-db.js'
 	import { getAgentProfile } from '@/utils/agent-db.js'
+	import { checkPlatformAdminRole } from '@/utils/admin-db.js'
 
 	const wifiName = ref('')
 	const wifiPassword = ref('')
@@ -141,6 +142,7 @@
 	const pageLoading = ref(true)
 	const isMerchantJoined = ref(false)
 	const isAgentJoined = ref(false)
+	const isPlatformAdminUser = ref(false)
 	let loadedSessionVersion = -1
 
 	async function refreshMerchantEntry() {
@@ -159,6 +161,10 @@
 		} catch (err) {
 			isAgentJoined.value = false
 		}
+	}
+
+	async function refreshAdminEntry() {
+		isPlatformAdminUser.value = await checkPlatformAdminRole()
 	}
 
 	async function goMerchantPage() {
@@ -262,6 +268,10 @@
 
 	/** 首页快速创建：写入 uniCloud wifi_list */
 	async function quickCreateWifi() {
+		if (!isPlatformAdminUser.value) {
+			uni.showToast({ title: '仅管理员可创建 WiFi', icon: 'none' })
+			return
+		}
 		if (!wifiName.value || !wifiPassword.value) {
 			uni.showToast({
 				title: '请输入WiFi名称和密码',
@@ -333,6 +343,7 @@
 	onShow(() => {
 		refreshMerchantEntry()
 		refreshAgentEntry()
+		refreshAdminEntry()
 		if (loadedSessionVersion === getNearbySessionVersion() && wifiList.value.length > 0) {
 			return
 		}

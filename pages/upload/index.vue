@@ -102,11 +102,13 @@
 import { ref, computed, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
-import { isLoggedIn, getOpenid } from '@/utils/auth.js'
+import { isLoggedIn } from '@/utils/auth.js'
 import { addWifi } from '@/utils/wifi-db.js'
 import { invalidateNearbyCache } from '@/utils/wifi-nearby-loader.js'
 import { getUserLocation } from '@/utils/location.js'
 import { WIFI_LIST_REFRESH_EVENT, MERCHANT_REFRESH_EVENT, MY_WIFI_REFRESH_EVENT } from '@/utils/cloud-config.js'
+import { checkPlatformAdminRole } from '@/utils/admin-db.js'
+import { getAgentProfile } from '@/utils/agent-db.js'
 
 const form = ref({
 	wifiName: '',
@@ -126,6 +128,7 @@ const locating = ref(false)
 const locError = ref('')
 const submitting = ref(false)
 const uploadSuccess = ref(false)
+const canUploadWifi = ref(false)
 
 const latitudeText = computed(() => {
 	if (latitude.value == null) return '--'
@@ -137,11 +140,24 @@ const longitudeText = computed(() => {
 	return longitude.value.toFixed(6)
 })
 
-onShow(() => {
+onShow(async () => {
+	await refreshUploadRole()
 	if (!uploadSuccess.value) {
 		refreshLocation()
 	}
 })
+
+async function refreshUploadRole() {
+	try {
+		const [isAdmin, agentProfile] = await Promise.all([
+			checkPlatformAdminRole(),
+			getAgentProfile()
+		])
+		canUploadWifi.value = !!(isAdmin || (agentProfile && agentProfile._id))
+	} catch (err) {
+		canUploadWifi.value = false
+	}
+}
 
 /** 单字段校验 */
 function validateField(field) {
@@ -226,6 +242,18 @@ async function submitUpload() {
 	if (uploadSuccess.value) {
 		resetForm()
 		await refreshLocation()
+		return
+	}
+
+	if (!canUploadWifi.value) {
+		uni.showModal({
+			title: '暂无上传权限',
+			content: '上传 WiFi 需先完成代理入驻，或联系平台管理员添加。',
+			confirmText: '代理入驻',
+			success: (res) => {
+				if (res.confirm) uni.navigateTo({ url: '/pages/agent-join/agent-join' })
+			}
+		})
 		return
 	}
 

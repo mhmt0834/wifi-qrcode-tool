@@ -126,7 +126,7 @@
 
 					</view>
 
-					<view class="menu-item" @click="goPage('/pages/create-wifi/create-wifi')">
+					<view v-if="isPlatformAdminUser" class="menu-item" @click="goPage('/pages/create-wifi/create-wifi')">
 
 						<image class="menu-item__icon" src="/static/icons/create.png" mode="aspectFit" />
 
@@ -190,6 +190,7 @@ import {
 import { getStoredUser } from '@/utils/user-store.js'
 
 import { MERCHANT_REFRESH_EVENT } from '@/utils/cloud-config.js'
+import { checkPlatformAdminRole } from '@/utils/admin-db.js'
 
 
 
@@ -210,6 +211,7 @@ const stats = ref({
 })
 
 const recentConnects = ref([])
+const isPlatformAdminUser = ref(false)
 
 
 
@@ -228,6 +230,7 @@ async function loadDashboard() {
 			getMerchantRecentConnects(20)
 
 		])
+		isPlatformAdminUser.value = await checkPlatformAdminRole()
 
 		const user = getStoredUser()
 
