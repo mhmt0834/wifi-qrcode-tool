@@ -14,10 +14,16 @@
 				<view class="user-info">
 					<view class="user-name">{{ userInfo.nickname }}</view>
 					<view class="user-desc">已登录</view>
-					<view v-if="userInfo.openid" class="user-openid-panel">
+					<view class="user-openid-panel">
 						<text class="user-openid-label">OpenID</text>
-						<text class="user-openid-value">{{ userInfo.openid }}</text>
-						<button class="openid-copy-btn" size="mini" @click.stop="copyOpenid">复制</button>
+						<text class="user-openid-value">{{ userInfo.openid || openidFallbackText }}</text>
+						<button
+							class="openid-copy-btn"
+							:class="{ 'openid-copy-btn--disabled': !userInfo.openid }"
+							size="mini"
+							:disabled="!userInfo.openid"
+							@click.stop="copyOpenid"
+						>复制</button>
 					</view>
 				</view>
 			</view>
@@ -150,6 +156,8 @@ const editAvatar = ref('')
 const stats = ref({ connectCount: 0, wifiCount: 0, dealCount: 0 })
 const saving = ref(false)
 const fetchingOpenid = ref(false)
+const openidLoading = ref(false)
+const openidFallbackText = ref('获取中...')
 const isPlatformAdminUser = ref(false)
 
 function syncLocalUser() {
@@ -167,6 +175,36 @@ function syncLocalUser() {
 		userInfo.value = { nickname: '', avatar: '', openid: '' }
 		editNickname.value = ''
 		editAvatar.value = ''
+		openidFallbackText.value = '获取中...'
+	}
+}
+
+function saveOpenidToLocal(openid) {
+	const value = String(openid || '').trim()
+	if (!value) return false
+	userInfo.value = { ...userInfo.value, openid: value }
+	const stored = readStoredUser()
+	if (stored) {
+		saveStoredUser({ ...stored, openid: value })
+	}
+	openidFallbackText.value = ''
+	return true
+}
+
+async function ensureOpenidLoaded(silent = true) {
+	if (!isLogin.value || userInfo.value.openid || openidLoading.value) return
+	openidLoading.value = true
+	openidFallbackText.value = '获取中...'
+	try {
+		const openid = await fetchOpenidFromCloud()
+		saveOpenidToLocal(openid)
+	} catch (err) {
+		openidFallbackText.value = '获取失败'
+		if (!silent) {
+			uni.showToast({ title: toastMessage(err, '获取失败'), icon: 'none' })
+		}
+	} finally {
+		openidLoading.value = false
 	}
 }
 
@@ -175,12 +213,7 @@ async function testFetchOpenid() {
 	fetchingOpenid.value = true
 	try {
 		const openid = await fetchOpenidFromCloud()
-		userInfo.value.openid = openid
-		const stored = readStoredUser()
-		if (stored) {
-			stored.openid = openid
-			saveStoredUser(stored)
-		}
+		saveOpenidToLocal(openid)
 		uni.setClipboardData({
 			data: openid,
 			success: () => {
@@ -291,9 +324,15 @@ onShow(() => {
 	loadStats()
 	loadAdminRole()
 	if (isLogin.value) {
+		ensureOpenidLoaded()
 		refreshUserProfile()
-			.then(() => syncLocalUser())
-			.catch(() => {})
+			.then(() => {
+				syncLocalUser()
+				ensureOpenidLoaded()
+			})
+			.catch(() => {
+				ensureOpenidLoaded()
+			})
 	}
 })
 </script>
@@ -392,6 +431,10 @@ onShow(() => {
 		color: #fff;
 		font-size: 20rpx;
 		flex-shrink: 0;
+	}
+
+	.openid-copy-btn--disabled {
+		opacity: 0.55;
 	}
 
 	.openid-copy-btn::after {
