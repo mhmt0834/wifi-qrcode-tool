@@ -64,12 +64,6 @@
 					<view class="card__desc">{{ wifiIntro }}</view>
 				</view>
 
-				<view class="card">
-					<view class="card__title">商家信息</view>
-					<view class="card__desc">{{ shopName }}</view>
-					<view v-if="wifiAddress" class="card__desc card__desc--sub">{{ wifiAddress }}</view>
-				</view>
-
 				<!-- 未解锁 -->
 				<view v-if="!passwordUnlocked" class="card lock-card">
 					<image class="lock-card__icon" src="/static/icons/wifi.png" mode="aspectFit" />

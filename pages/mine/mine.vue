@@ -14,6 +14,11 @@
 				<view class="user-info">
 					<view class="user-name">{{ userInfo.nickname }}</view>
 					<view class="user-desc">已登录</view>
+					<view v-if="userInfo.openid" class="user-openid-panel">
+						<text class="user-openid-label">OpenID</text>
+						<text class="user-openid-value">{{ userInfo.openid }}</text>
+						<button class="openid-copy-btn" size="mini" @click.stop="copyOpenid">复制</button>
+					</view>
 				</view>
 			</view>
 
@@ -350,6 +355,47 @@ onShow(() => {
 		font-size: 22rpx;
 		color: rgba(255, 255, 255, 0.75);
 		margin-top: 8rpx;
+	}
+
+	.user-openid-panel {
+		display: flex;
+		align-items: center;
+		margin-top: 14rpx;
+		min-width: 0;
+	}
+
+	.user-openid-label {
+		font-size: 20rpx;
+		color: rgba(255, 255, 255, 0.82);
+		margin-right: 8rpx;
+		flex-shrink: 0;
+	}
+
+	.user-openid-value {
+		flex: 1;
+		min-width: 0;
+		font-size: 20rpx;
+		color: rgba(255, 255, 255, 0.9);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.openid-copy-btn {
+		width: 72rpx;
+		height: 40rpx;
+		line-height: 40rpx;
+		margin-left: 12rpx;
+		padding: 0;
+		border-radius: 999rpx;
+		background: rgba(255, 255, 255, 0.22);
+		color: #fff;
+		font-size: 20rpx;
+		flex-shrink: 0;
+	}
+
+	.openid-copy-btn::after {
+		border: none;
 	}
 
 	.list-item__arrow {

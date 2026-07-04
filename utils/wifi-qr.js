@@ -191,7 +191,33 @@ export async function resolveImageLocalPath(url) {
 }
 
 /** 保存图片到相册 */
+export function ensureWritePhotosAlbumPermission() {
+	return new Promise((resolve, reject) => {
+		// #ifdef MP-WEIXIN
+		uni.getSetting({
+			success: (res) => {
+				const authSetting = (res && res.authSetting) || {}
+				if (authSetting['scope.writePhotosAlbum']) {
+					resolve()
+					return
+				}
+				uni.authorize({
+					scope: 'scope.writePhotosAlbum',
+					success: resolve,
+					fail: reject
+				})
+			},
+			fail: reject
+		})
+		// #endif
+		// #ifndef MP-WEIXIN
+		resolve()
+		// #endif
+	})
+}
+
 export async function saveImageToAlbum(filePath) {
+	await ensureWritePhotosAlbumPermission()
 	await new Promise((resolve, reject) => {
 		uni.saveImageToPhotosAlbum({
 			filePath,
@@ -204,4 +230,14 @@ export async function saveImageToAlbum(filePath) {
 export async function saveQrCodeToAlbum(qrCodeUrl) {
 	const localPath = await resolveImageLocalPath(qrCodeUrl)
 	await saveImageToAlbum(localPath)
+}
+
+export function isAlbumPermissionDenied(err) {
+	const msg = (err && (err.errMsg || err.message)) || ''
+	return /auth deny|authorize:fail|permission denied|deny/i.test(msg)
+}
+
+export function isAlbumPrivacyUndeclared(err) {
+	const msg = (err && (err.errMsg || err.message)) || ''
+	return /api scope.*not.*declared|privacy agreement|隐私/i.test(msg)
 }

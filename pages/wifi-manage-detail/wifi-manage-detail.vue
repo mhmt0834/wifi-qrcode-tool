@@ -186,7 +186,13 @@ import { onLoad } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
 import { getMyWifiDetail, updateWifi, deleteWifi, updateWifiStatus, assignWifiMerchant } from '@/utils/wifi-db.js'
 import { MY_WIFI_REFRESH_EVENT, MERCHANT_REFRESH_EVENT, WIFI_LIST_REFRESH_EVENT } from '@/utils/cloud-config.js'
-import { generateWifiQrCode, resolveQrImageDisplayUrl, saveQrCodeToAlbum } from '@/utils/wifi-qr.js'
+import {
+	generateWifiQrCode,
+	resolveQrImageDisplayUrl,
+	saveQrCodeToAlbum,
+	isAlbumPermissionDenied,
+	isAlbumPrivacyUndeclared
+} from '@/utils/wifi-qr.js'
 import { createWifiSharePosterInPage, sharePosterImage } from '@/utils/wifi-qr-poster.js'
 
 const wifiId = ref('')
@@ -372,7 +378,15 @@ async function handleSaveAlbum() {
 		await saveQrCodeToAlbum(detail.value.qrCodeUrl)
 		uni.showToast({ title: '已保存到相册', icon: 'success' })
 	} catch (err) {
-		if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
+		if (isAlbumPrivacyUndeclared(err)) {
+			uni.showModal({
+				title: '相册权限未生效',
+				content: '请确认已在微信公众平台隐私保护指引中声明“相册（仅写入）权限”，并重新发布后再试。',
+				showCancel: false
+			})
+			return
+		}
+		if (isAlbumPermissionDenied(err)) {
 			uni.showModal({
 				title: '需要相册权限',
 				content: '请在设置中允许保存到相册',
