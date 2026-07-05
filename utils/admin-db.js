@@ -76,3 +76,27 @@ export async function settleRewardedAdRevenue({ settleDate, grossAmount, adUnitI
 	}
 	return result.data
 }
+
+export async function getWifiPrivilegeRequestList(status = 'pending') {
+	const result = await callAdminCloud({
+		action: 'adminWifiPrivilegeRequestList',
+		status
+	})
+	if (!result || result.code !== 0) {
+		throw new Error((result && result.msg) || '特权申请加载失败')
+	}
+	return (result.data && result.data.list) || []
+}
+
+export async function auditWifiPrivilegeRequest({ requestId, auditAction, auditNote = '' }) {
+	const result = await callAdminCloud({
+		action: 'adminAuditWifiPrivilegeRequest',
+		requestId,
+		auditAction,
+		auditNote
+	})
+	if (!result || result.code !== 0) {
+		throw new Error((result && result.msg) || '特权审核失败')
+	}
+	return result.data
+}

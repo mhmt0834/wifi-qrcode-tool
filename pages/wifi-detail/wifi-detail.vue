@@ -132,6 +132,7 @@ import {
 	resolveWifiIdFromOptions
 } from '@/utils/wifi-qr.js'
 import { recordWifiView, recordWifiConnect } from '@/utils/merchant-db.js'
+import { getWifiAdFreePrivilege } from '@/utils/benefit-db.js'
 
 const pageLoading = ref(true)
 const wifiNotFound = ref(false)
@@ -208,10 +209,11 @@ function goHome() {
 	uni.switchTab({ url: '/pages/index/index' })
 }
 
-/** 获取连接凭证（审核模式跳过广告；正式版经 showRewardAd 播放激励视频） */
-async function unlockPassword(adTicket = '') {
+/** 获取连接凭证（普通用户需广告凭证；免广告特权用户由云端特权放行） */
+async function unlockPassword(adTicket = '', options = {}) {
 	if (!wifiDocId.value) return false
-	if (!adTicket || adTicket !== lastAdTicket.value) {
+	const bypassAd = !!options.bypassAd
+	if (!bypassAd && (!adTicket || adTicket !== lastAdTicket.value)) {
 		uni.showToast({ title: '请先完整观看激励视频', icon: 'none' })
 		return false
 	}
@@ -225,9 +227,11 @@ async function unlockPassword(adTicket = '') {
 			return false
 		}
 
-		await recordWifiConnect(wifiDocId.value)
+		await recordWifiConnect(wifiDocId.value, {
+			source: bypassAd ? 'ad_free_privilege' : 'rewarded_ad'
+		})
 		passwordUnlocked.value = true
-		uni.showToast({ title: '密码已获取', icon: 'success' })
+		uni.showToast({ title: bypassAd ? '特权免广告，密码已获取' : '密码已获取', icon: 'success' })
 		return true
 	} catch (err) {
 		uni.showToast({ title: err.message || '获取密码失败', icon: 'none' })
@@ -248,6 +252,11 @@ async function onGetPassword() {
 
 	adLoading.value = true
 	try {
+		const privilege = await getWifiAdFreePrivilege().catch(() => ({ active: false }))
+		if (privilege && privilege.active) {
+			await unlockPassword('', { bypassAd: true })
+			return
+		}
 		lastAdTicket.value = ''
 		const adResult = await showRewardAdWithTicket()
 		if (!adResult.completed || !adResult.ticket) {

@@ -1,0 +1,19 @@
+{
+	"bsonType": "object",
+	"description": "福利页广告观看每日进度",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": { "description": "文档 ID" },
+		"openid": { "bsonType": "string", "title": "用户OpenID" },
+		"benefitKey": { "bsonType": "string", "title": "福利标识" },
+		"dateKey": { "bsonType": "string", "title": "日期" },
+		"watchCount": { "bsonType": "int", "title": "当日完整观看次数" },
+		"createTime": { "bsonType": "timestamp", "title": "创建时间" },
+		"updateTime": { "bsonType": "timestamp", "title": "更新时间" }
+	}
+}

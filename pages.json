@@ -32,7 +32,7 @@
 		{
 			"path": "pages/deals/deals",
 			"style": {
-				"navigationBarTitleText": "特惠",
+				"navigationBarTitleText": "福利",
 				"navigationBarBackgroundColor": "#C80000",
 				"navigationBarTextStyle": "white",
 				"navigationStyle": "custom"
@@ -213,6 +213,16 @@
 				"navigationBarTextStyle": "white",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/platform-privilege/platform-privilege",
+			"style": {
+				"navigationBarTitleText": "WiFi自由审核",
+				"navigationBarBackgroundColor": "#C80000",
+				"navigationBarTextStyle": "white",
+				"navigationStyle": "custom",
+				"enablePullDownRefresh": true
+			}
 		}
 	],
 	"globalStyle": {
@@ -251,7 +261,7 @@
 			},
 			{
 				"pagePath": "pages/deals/deals",
-				"text": "特惠",
+				"text": "福利",
 				"iconPath": "static/tab/deals.png",
 				"selectedIconPath": "static/tab/deals-active.png"
 			},

@@ -1,0 +1,20 @@
+{
+	"bsonType": "object",
+	"description": "福利页激励广告观看记录",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": { "description": "文档 ID" },
+		"openid": { "bsonType": "string", "title": "用户OpenID" },
+		"benefitKey": { "bsonType": "string", "title": "福利标识" },
+		"adType": { "bsonType": "string", "title": "广告类型" },
+		"adUnitId": { "bsonType": "string", "title": "广告位ID" },
+		"ticket": { "bsonType": "string", "title": "本次广告凭证" },
+		"dateKey": { "bsonType": "string", "title": "日期" },
+		"createTime": { "bsonType": "timestamp", "title": "创建时间" }
+	}
+}

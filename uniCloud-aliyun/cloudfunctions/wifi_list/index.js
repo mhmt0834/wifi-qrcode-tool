@@ -20,6 +20,10 @@ const connectLogCollection = db.collection('wifi_connect_log')
 const revenueLogCollection = db.collection('wifi_revenue_log')
 const agentRevenueCollection = db.collection('agent_revenue_log')
 const settlementCollection = db.collection('ad_settlement_import')
+const benefitProgressCollection = db.collection('wifi_benefit_progress')
+const benefitAdLogCollection = db.collection('wifi_benefit_ad_log')
+const privilegeRequestCollection = db.collection('wifi_privilege_request')
+const privilegeCollection = db.collection('wifi_privilege')
 
 const AD_GROSS_REVENUE_PER_CONNECT = 0.15
 const REWARDED_VIDEO_AD_UNIT_ID = 'adunit-21d6d12eb155bd3b'
@@ -28,6 +32,11 @@ const PLATFORM_SHARE_RATE = 0.4
 const AGENT_SHARE_RATE = 0.3
 const MERCHANT_SHARE_RATE = 0.3
 const WITHDRAW_FREEZE_STATUSES = ['pending', 'approved', 'paid']
+const WIFI_FREE_BENEFIT_KEY = 'wifi_free'
+const WIFI_AD_FREE_PRIVILEGE_TYPE = 'wifi_ad_free'
+const WIFI_FREE_MONTHLY_REQUIRED_COUNT = 8
+const WIFI_FREE_PERMANENT_REQUIRED_COUNT = 18
+const WIFI_FREE_MONTHLY_DAYS = 30
 
 /**
  * 平台管理员 openid 白名单。
@@ -92,6 +101,30 @@ function getChinaDayRange(dateText) {
 		start,
 		end: start + 86400000
 	}
+}
+
+function getChinaDateKey(ts = Date.now()) {
+	return new Date((Number(ts) || Date.now()) + 8 * 3600000).toISOString().slice(0, 10)
+}
+
+function formatDateOnly(ts) {
+	if (!ts) return ''
+	const d = new Date(ts)
+	const y = d.getFullYear()
+	const mo = String(d.getMonth() + 1).padStart(2, '0')
+	const day = String(d.getDate()).padStart(2, '0')
+	return `${y}-${mo}-${day}`
+}
+
+function getWifiFreeLevelLabel(level) {
+	return level === 'permanent' ? '长期免广告特权' : '1个月免广告体验卡'
+}
+
+function isActiveWifiAdFreePrivilege(item, now = Date.now()) {
+	if (!item || item.status !== 'active') return false
+	if (item.privilegeType !== WIFI_AD_FREE_PRIVILEGE_TYPE) return false
+	const expireTime = Number(item.expireTime) || 0
+	return !expireTime || expireTime > now
 }
 
 function getLogMerchantAmount(item) {
@@ -1888,6 +1921,448 @@ async function handleAdminSettleRewardedAdRevenue(event, openid) {
 	}
 }
 
+async function getActiveWifiAdFreePrivilege(openid) {
+	const userOpenid = normalizeOpenid(openid)
+	if (!userOpenid) return null
+	const {
+		data
+	} = await privilegeCollection.where({
+		openid: userOpenid,
+		privilegeType: WIFI_AD_FREE_PRIVILEGE_TYPE,
+		status: 'active'
+	}).limit(20).get()
+	const now = Date.now()
+	const rows = (data || []).filter((item) => isActiveWifiAdFreePrivilege(item, now))
+	if (!rows.length) return null
+	rows.sort((a, b) => {
+		if (a.level === 'permanent' && b.level !== 'permanent') return -1
+		if (a.level !== 'permanent' && b.level === 'permanent') return 1
+		return (Number(b.expireTime) || 0) - (Number(a.expireTime) || 0)
+	})
+	return rows[0]
+}
+
+async function getWifiFreeProgress(openid, dateKey = getChinaDateKey()) {
+	const userOpenid = normalizeOpenid(openid)
+	if (!userOpenid) return null
+	const {
+		data
+	} = await benefitProgressCollection.where({
+		openid: userOpenid,
+		benefitKey: WIFI_FREE_BENEFIT_KEY,
+		dateKey
+	}).limit(1).get()
+	return data && data.length ? data[0] : null
+}
+
+async function getWifiFreeRequests(openid) {
+	const userOpenid = normalizeOpenid(openid)
+	if (!userOpenid) return []
+	const {
+		data
+	} = await privilegeRequestCollection.where({
+		openid: userOpenid,
+		benefitKey: WIFI_FREE_BENEFIT_KEY
+	}).orderBy('createTime', 'desc').limit(50).get()
+	return data || []
+}
+
+function pickLatestRequestStatus(rows, level) {
+	const item = (rows || []).find((row) => row.level === level && row.status !== 'rejected')
+	return item ? (item.status || '') : ''
+}
+
+async function createWifiFreeRequestIfNeeded(openid, level, watchCount, dateKey, now) {
+	const userOpenid = normalizeOpenid(openid)
+	if (!userOpenid) return null
+	const activePrivilege = await getActiveWifiAdFreePrivilege(userOpenid)
+	if (activePrivilege && activePrivilege.level === 'permanent') return null
+	if (level === 'monthly' && activePrivilege) return null
+	const rows = await getWifiFreeRequests(userOpenid)
+	const pending = rows.find((item) => item.level === level && item.status === 'pending')
+	if (pending) return null
+	const approved = rows.find((item) => item.level === level && item.status === 'approved')
+	if (approved && level === 'permanent') return null
+	const requiredCount = level === 'permanent' ? WIFI_FREE_PERMANENT_REQUIRED_COUNT : WIFI_FREE_MONTHLY_REQUIRED_COUNT
+	if (watchCount < requiredCount) return null
+	const addRes = await privilegeRequestCollection.add({
+		openid: userOpenid,
+		benefitKey: WIFI_FREE_BENEFIT_KEY,
+		privilegeType: WIFI_AD_FREE_PRIVILEGE_TYPE,
+		level,
+		title: getWifiFreeLevelLabel(level),
+		requiredCount,
+		watchCount,
+		dateKey,
+		status: 'pending',
+		createTime: now
+	})
+	return {
+		_id: addRes.id,
+		level,
+		status: 'pending',
+		title: getWifiFreeLevelLabel(level)
+	}
+}
+
+async function getWifiFreeStatusData(openid) {
+	const userOpenid = normalizeOpenid(openid)
+	if (!userOpenid) {
+		return {
+			openid: '',
+			dateKey: getChinaDateKey(),
+			watchCount: 0,
+			monthlyRequiredCount: WIFI_FREE_MONTHLY_REQUIRED_COUNT,
+			permanentRequiredCount: WIFI_FREE_PERMANENT_REQUIRED_COUNT,
+			activePrivilege: null,
+			monthlyRequestStatus: '',
+			permanentRequestStatus: ''
+		}
+	}
+	const dateKey = getChinaDateKey()
+	const progress = await getWifiFreeProgress(userOpenid, dateKey)
+	const activePrivilege = await getActiveWifiAdFreePrivilege(userOpenid)
+	const requests = await getWifiFreeRequests(userOpenid)
+	return {
+		openid: userOpenid,
+		dateKey,
+		watchCount: Number(progress && progress.watchCount) || 0,
+		monthlyRequiredCount: WIFI_FREE_MONTHLY_REQUIRED_COUNT,
+		permanentRequiredCount: WIFI_FREE_PERMANENT_REQUIRED_COUNT,
+		activePrivilege: activePrivilege ? {
+			level: activePrivilege.level || 'monthly',
+			title: getWifiFreeLevelLabel(activePrivilege.level),
+			startTime: activePrivilege.startTime || 0,
+			expireTime: activePrivilege.expireTime || 0,
+			expireDate: activePrivilege.expireTime ? formatDateOnly(activePrivilege.expireTime) : ''
+		} : null,
+		monthlyRequestStatus: pickLatestRequestStatus(requests, 'monthly'),
+		permanentRequestStatus: pickLatestRequestStatus(requests, 'permanent')
+	}
+}
+
+async function handleGetWifiFreeStatus(event, openid) {
+	try {
+		if (!openid) return {
+			code: 401,
+			msg: '未登录',
+			data: null
+		}
+		return {
+			code: 0,
+			msg: 'ok',
+			data: await getWifiFreeStatusData(openid)
+		}
+	} catch (err) {
+		console.error('[wifi_list] getWifiFreeStatus 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '获取失败',
+			data: null
+		}
+	}
+}
+
+async function handleGetWifiAdFreePrivilege(event, openid) {
+	try {
+		const activePrivilege = await getActiveWifiAdFreePrivilege(openid)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				active: !!activePrivilege,
+				level: activePrivilege ? (activePrivilege.level || 'monthly') : '',
+				title: activePrivilege ? getWifiFreeLevelLabel(activePrivilege.level) : '',
+				expireTime: activePrivilege ? (activePrivilege.expireTime || 0) : 0,
+				expireDate: activePrivilege && activePrivilege.expireTime ? formatDateOnly(activePrivilege.expireTime) : ''
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] getWifiAdFreePrivilege 失败', err)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				active: false
+			}
+		}
+	}
+}
+
+async function handleRecordWifiFreeAdWatch(event, openid) {
+	try {
+		const userOpenid = normalizeOpenid(openid)
+		if (!userOpenid) return {
+			code: 401,
+			msg: '未登录',
+			data: null
+		}
+		const ticket = String((event && event.ticket) || '').trim()
+		if (!ticket) return {
+			code: 400,
+			msg: '缺少广告凭证',
+			data: null
+		}
+		const now = Date.now()
+		const dateKey = getChinaDateKey(now)
+		const {
+			data: usedTicketRows
+		} = await benefitAdLogCollection.where({
+			openid: userOpenid,
+			benefitKey: WIFI_FREE_BENEFIT_KEY,
+			ticket
+		}).limit(1).get()
+		if (usedTicketRows && usedTicketRows.length) {
+			return {
+				code: 0,
+				msg: 'ok',
+				data: {
+					...(await getWifiFreeStatusData(userOpenid)),
+					duplicate: true,
+					createdRequests: []
+				}
+			}
+		}
+		await benefitAdLogCollection.add({
+			openid: userOpenid,
+			benefitKey: WIFI_FREE_BENEFIT_KEY,
+			adType: REWARDED_VIDEO_AD_TYPE,
+			adUnitId: REWARDED_VIDEO_AD_UNIT_ID,
+			ticket,
+			dateKey,
+			createTime: now
+		})
+		const progress = await getWifiFreeProgress(userOpenid, dateKey)
+		let watchCount = 1
+		if (progress && progress._id) {
+			watchCount = (Number(progress.watchCount) || 0) + 1
+			await benefitProgressCollection.doc(progress._id).update({
+				watchCount,
+				updateTime: now
+			})
+		} else {
+			await benefitProgressCollection.add({
+				openid: userOpenid,
+				benefitKey: WIFI_FREE_BENEFIT_KEY,
+				dateKey,
+				watchCount,
+				createTime: now,
+				updateTime: now
+			})
+		}
+		const createdRequests = []
+		const monthlyRequest = await createWifiFreeRequestIfNeeded(userOpenid, 'monthly', watchCount, dateKey, now)
+		if (monthlyRequest) createdRequests.push(monthlyRequest)
+		const permanentRequest = await createWifiFreeRequestIfNeeded(userOpenid, 'permanent', watchCount, dateKey, now)
+		if (permanentRequest) createdRequests.push(permanentRequest)
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				...(await getWifiFreeStatusData(userOpenid)),
+				createdRequests
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] recordWifiFreeAdWatch 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '记录失败',
+			data: null
+		}
+	}
+}
+
+async function handleAdminWifiPrivilegeRequestList(event, openid) {
+	try {
+		const denied = rejectNonAdmin(openid)
+		if (denied) return denied
+		const status = String((event && event.status) || 'pending').trim()
+		const query = {
+			benefitKey: WIFI_FREE_BENEFIT_KEY
+		}
+		if (status && status !== '全部') query.status = status
+		const {
+			data
+		} = await privilegeRequestCollection
+			.where(query)
+			.orderBy('createTime', 'desc')
+			.limit(100)
+			.get()
+		const list = (data || []).map((item) => ({
+			_id: item._id,
+			openid: item.openid || '',
+			title: item.title || getWifiFreeLevelLabel(item.level),
+			level: item.level || 'monthly',
+			levelLabel: getWifiFreeLevelLabel(item.level),
+			watchCount: item.watchCount || 0,
+			requiredCount: item.requiredCount || 0,
+			dateKey: item.dateKey || '',
+			status: item.status || 'pending',
+			time: formatDateTime(item.createTime),
+			createTime: item.createTime || 0,
+			auditNote: item.auditNote || '',
+			auditTime: item.auditTime ? formatDateTime(item.auditTime) : ''
+		}))
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				list
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] adminWifiPrivilegeRequestList 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '查询失败',
+			data: {
+				list: []
+			}
+		}
+	}
+}
+
+async function createOrExtendWifiAdFreePrivilege(requestDoc, auditorOpenid, now) {
+	const userOpenid = normalizeOpenid(requestDoc && requestDoc.openid)
+	if (!userOpenid) return ''
+	const level = requestDoc.level === 'permanent' ? 'permanent' : 'monthly'
+	const {
+		data
+	} = await privilegeCollection.where({
+		openid: userOpenid,
+		privilegeType: WIFI_AD_FREE_PRIVILEGE_TYPE,
+		status: 'active'
+	}).limit(20).get()
+	const rows = data || []
+	const activePermanent = rows.find((item) => isActiveWifiAdFreePrivilege(item, now) && item.level === 'permanent')
+	if (activePermanent) return activePermanent._id
+	if (level === 'permanent') {
+		await Promise.all(rows.map((item) => privilegeCollection.doc(item._id).update({
+			status: 'disabled',
+			updateTime: now
+		})))
+		const addRes = await privilegeCollection.add({
+			openid: userOpenid,
+			privilegeType: WIFI_AD_FREE_PRIVILEGE_TYPE,
+			level: 'permanent',
+			status: 'active',
+			source: WIFI_FREE_BENEFIT_KEY,
+			requestId: requestDoc._id,
+			auditorOpenid,
+			startTime: now,
+			expireTime: 0,
+			createTime: now,
+			updateTime: now
+		})
+		return addRes.id
+	}
+	const activeMonthly = rows.find((item) => isActiveWifiAdFreePrivilege(item, now) && item.level !== 'permanent')
+	if (activeMonthly) {
+		const baseTime = Math.max(now, Number(activeMonthly.expireTime) || now)
+		const expireTime = baseTime + WIFI_FREE_MONTHLY_DAYS * 86400000
+		await privilegeCollection.doc(activeMonthly._id).update({
+			requestId: requestDoc._id,
+			auditorOpenid,
+			expireTime,
+			updateTime: now
+		})
+		return activeMonthly._id
+	}
+	const addRes = await privilegeCollection.add({
+		openid: userOpenid,
+		privilegeType: WIFI_AD_FREE_PRIVILEGE_TYPE,
+		level: 'monthly',
+		status: 'active',
+		source: WIFI_FREE_BENEFIT_KEY,
+		requestId: requestDoc._id,
+		auditorOpenid,
+		startTime: now,
+		expireTime: now + WIFI_FREE_MONTHLY_DAYS * 86400000,
+		createTime: now,
+		updateTime: now
+	})
+	return addRes.id
+}
+
+async function handleAdminAuditWifiPrivilegeRequest(event, openid) {
+	try {
+		const denied = rejectNonAdmin(openid)
+		if (denied) return denied
+		const requestId = String((event && event.requestId) || '').trim()
+		const auditAction = String((event && event.auditAction) || '').trim()
+		const auditNote = String((event && event.auditNote) || '').trim()
+		if (!requestId) return {
+			code: 400,
+			msg: '缺少申请 ID',
+			data: null
+		}
+		const {
+			data
+		} = await privilegeRequestCollection.doc(requestId).get()
+		if (!data || !data.length) return {
+			code: 404,
+			msg: '申请不存在',
+			data: null
+		}
+		const doc = data[0]
+		if (doc.status !== 'pending') return {
+			code: 400,
+			msg: '当前申请不可操作',
+			data: null
+		}
+		const now = Date.now()
+		if (auditAction === 'reject') {
+			await privilegeRequestCollection.doc(requestId).update({
+				status: 'rejected',
+				auditorOpenid: openid,
+				auditNote,
+				auditTime: now,
+				rejectTime: now,
+				updateTime: now
+			})
+			return {
+				code: 0,
+				msg: 'ok',
+				data: {
+					_id: requestId,
+					status: 'rejected'
+				}
+			}
+		}
+		if (auditAction !== 'approve') return {
+			code: 400,
+			msg: '审核操作错误',
+			data: null
+		}
+		const privilegeId = await createOrExtendWifiAdFreePrivilege(doc, openid, now)
+		await privilegeRequestCollection.doc(requestId).update({
+			status: 'approved',
+			privilegeId,
+			auditorOpenid: openid,
+			auditNote,
+			auditTime: now,
+			updateTime: now
+		})
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				_id: requestId,
+				status: 'approved',
+				privilegeId
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] adminAuditWifiPrivilegeRequest 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '审核失败',
+			data: null
+		}
+	}
+}
+
 function rejectNonAdmin(openid) {
 	if (isPlatformAdmin(openid)) return null
 	return {
@@ -2287,6 +2762,8 @@ async function handleRecordConnect(event, userOpenid) {
 		const {
 			wifiId
 		} = event || {}
+		const source = String((event && event.source) || 'rewarded_ad').trim()
+		const isAdFreePrivilegeConnect = source === 'ad_free_privilege'
 		if (!wifiId) return {
 			code: 0,
 			msg: 'ok',
@@ -2312,6 +2789,14 @@ async function handleRecordConnect(event, userOpenid) {
 		const now = Date.now()
 		const shares = calcRevenueShares()
 		const agentOpenid = await resolveAgentOpenidForWifi(doc)
+		if (isAdFreePrivilegeConnect) {
+			const activePrivilege = await getActiveWifiAdFreePrivilege(userOpenid)
+			if (!activePrivilege) return {
+				code: 403,
+				msg: '免广告特权无效',
+				data: null
+			}
+		}
 		const connectCount = (doc.connectCount || 0) + 1
 		const viewCount = doc.viewCount || 0
 		const heat = calcHeat(viewCount, connectCount)
@@ -2323,6 +2808,34 @@ async function handleRecordConnect(event, userOpenid) {
 			updatePayload.agentOpenid = agentOpenid
 		}
 		await wifiCollection.doc(wifiId).update(updatePayload)
+		if (isAdFreePrivilegeConnect) {
+			await connectLogCollection.add({
+				wifiId,
+				wifiName: doc.wifiName || '',
+				merchantOpenid,
+				agentOpenid,
+				userOpenid: userOpenid || '',
+				connectTime: now,
+				adType: 'ad_free_privilege',
+				adUnitId: '',
+				income: 0,
+				grossAmount: 0,
+				platformAmount: 0,
+				agentAmount: 0,
+				merchantAmount: 0,
+				source: 'ad_free_privilege'
+			})
+			return {
+				code: 0,
+				msg: 'ok',
+				data: {
+					connectCount,
+					income: 0,
+					merchantAmount: 0,
+					adFree: true
+				}
+			}
+		}
 		const adEventId = makeAdEventId(wifiId, userOpenid, now)
 		await connectLogCollection.add({
 			adEventId,
@@ -2464,6 +2977,11 @@ exports.main = async (event, context) => {
 		'adminWithdrawList',
 		'adminAuditWithdraw',
 		'adminSettleRewardedAdRevenue',
+		'getWifiFreeStatus',
+		'recordWifiFreeAdWatch',
+		'getWifiAdFreePrivilege',
+		'adminWifiPrivilegeRequestList',
+		'adminAuditWifiPrivilegeRequest',
 		'getMerchantProfile',
 		'saveMerchantProfile',
 		'updateWifiStatus',
@@ -2521,6 +3039,16 @@ exports.main = async (event, context) => {
 				return await handleAdminAuditWithdraw(event, openid)
 			case 'adminSettleRewardedAdRevenue':
 				return await handleAdminSettleRewardedAdRevenue(event, openid)
+			case 'getWifiFreeStatus':
+				return await handleGetWifiFreeStatus(event, openid)
+			case 'recordWifiFreeAdWatch':
+				return await handleRecordWifiFreeAdWatch(event, openid)
+			case 'getWifiAdFreePrivilege':
+				return await handleGetWifiAdFreePrivilege(event, openid)
+			case 'adminWifiPrivilegeRequestList':
+				return await handleAdminWifiPrivilegeRequestList(event, openid)
+			case 'adminAuditWifiPrivilegeRequest':
+				return await handleAdminAuditWifiPrivilegeRequest(event, openid)
 			case 'getMerchantProfile':
 				return await handleGetMerchantProfile(openid)
 			case 'saveMerchantProfile':

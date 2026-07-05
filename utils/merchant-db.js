@@ -165,11 +165,15 @@ export async function recordWifiView(wifiId) {
 	}
 }
 
-/** 连接成功：写连接记录与收益 */
-export async function recordWifiConnect(wifiId) {
+/** 连接成功：写连接记录；激励广告连接会写收益，免广告特权连接不写收益 */
+export async function recordWifiConnect(wifiId, options = {}) {
 	if (!wifiId) return
 	try {
-		await callMerchantCloud({ action: 'recordConnect', wifiId })
+		await callMerchantCloud({
+			action: 'recordConnect',
+			wifiId,
+			source: options.source || 'rewarded_ad'
+		})
 	} catch (err) {
 		// 静默失败
 	}
