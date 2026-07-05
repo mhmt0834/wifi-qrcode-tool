@@ -8,7 +8,12 @@ const FRAMEWORK_CONSOLE_NOISE = [
 	'不校验合法域名配置',
 	'同一网络',
 	'日志通道 socket 连接关闭',
-	'closeSocket:fail Failed to execute'
+	'closeSocket:fail Failed to execute',
+	'SystemError (appServiceSDKScriptError)',
+	'The code must be either 1000',
+	'WebSocket connection to',
+	'wx.getSystemInfoSync is deprecated',
+	'Please use wx.getSystemSetting'
 ]
 
 function messageText(args) {
@@ -45,4 +50,13 @@ export function installFrameworkConsoleFilter() {
 			raw.apply(console, args)
 		}
 	})
+
+	// #ifdef MP-WEIXIN
+	if (typeof wx !== 'undefined' && wx.onError) {
+		wx.onError((message) => {
+			if (shouldSilence([message])) return
+			console.error(message)
+		})
+	}
+	// #endif
 }

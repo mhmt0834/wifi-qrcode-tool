@@ -12,6 +12,23 @@ import {
 import { withTimeout } from '@/utils/promise-util.js'
 
 const CLOUD_FUNCTION = WIFI_CLOUD_FUNCTION
+const IMAGE_DOWNLOAD_TIMEOUT_MS = 15000
+const SAVE_ALBUM_TIMEOUT_MS = 15000
+
+function withLocalTimeout(promise, ms, message) {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(message)), ms)
+		promise
+			.then((res) => {
+				clearTimeout(timer)
+				resolve(res)
+			})
+			.catch((err) => {
+				clearTimeout(timer)
+				reject(err)
+			})
+	})
+}
 
 async function callWifiQrCloud(data, needWx = false) {
 	const functionName = assertWifiCloudFunctionName(CLOUD_FUNCTION)
@@ -179,13 +196,13 @@ export function resolveQrImageDisplayUrl(url) {
 export async function resolveImageLocalPath(url) {
 	const displayUrl = await resolveQrImageDisplayUrl(url)
 	if (/^https?:\/\//i.test(displayUrl)) {
-		return new Promise((resolve, reject) => {
+		return await withLocalTimeout(new Promise((resolve, reject) => {
 			uni.downloadFile({
 				url: displayUrl,
 				success: (res) => resolve(res.tempFilePath),
 				fail: reject
 			})
-		})
+		}), IMAGE_DOWNLOAD_TIMEOUT_MS, '二维码图片下载超时，请稍后重试')
 	}
 	return displayUrl
 }
@@ -218,13 +235,13 @@ export function ensureWritePhotosAlbumPermission() {
 
 export async function saveImageToAlbum(filePath) {
 	await ensureWritePhotosAlbumPermission()
-	await new Promise((resolve, reject) => {
+	await withLocalTimeout(new Promise((resolve, reject) => {
 		uni.saveImageToPhotosAlbum({
 			filePath,
 			success: resolve,
 			fail: reject
 		})
-	})
+	}), SAVE_ALBUM_TIMEOUT_MS, '保存到相册超时，请稍后重试')
 }
 
 export async function saveQrCodeToAlbum(qrCodeUrl) {

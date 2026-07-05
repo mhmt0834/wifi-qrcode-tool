@@ -58,9 +58,6 @@
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "你的位置信息将用于展示附近共享 WiFi"
-            },
-            "scope.writePhotosAlbum" : {
-                "desc" : "用于保存 WiFi 二维码与分享海报到相册"
             }
         },
         "uniStatistics" : {
