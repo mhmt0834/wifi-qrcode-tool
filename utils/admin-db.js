@@ -63,3 +63,16 @@ export async function auditWithdraw({ withdrawId, accountType = 'merchant', audi
 	}
 	return result.data
 }
+
+export async function settleRewardedAdRevenue({ settleDate, grossAmount, adUnitId = '' }) {
+	const result = await callAdminCloud({
+		action: 'adminSettleRewardedAdRevenue',
+		settleDate,
+		grossAmount,
+		adUnitId
+	})
+	if (!result || result.code !== 0) {
+		throw new Error((result && result.msg) || '结算失败')
+	}
+	return result.data
+}

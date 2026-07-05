@@ -50,17 +50,39 @@
 						</view>
 						<view class="info-row">
 							<text class="info-row__label">OPENID</text>
-							<text class="info-row__value info-row__value--openid" selectable @click="copyText(item.accountOpenid)">
+							<text class="info-row__value info-row__value--openid" selectable @click="copyText(item.accountOpenid, 'OpenID')">
 								{{ item.accountOpenid || '-' }}
 							</text>
+							<button
+								class="copy-chip"
+								size="mini"
+								:disabled="!item.accountOpenid"
+								@click.stop="copyText(item.accountOpenid, 'OpenID')"
+							>复制</button>
 						</view>
 						<view class="info-row">
 							<text class="info-row__label">电话</text>
-							<text class="info-row__value">{{ item.accountPhone || '-' }}</text>
+							<text class="info-row__value info-row__value--copyable" selectable @click="copyText(item.accountPhone, '电话')">
+								{{ item.accountPhone || '-' }}
+							</text>
+							<button
+								class="copy-chip"
+								size="mini"
+								:disabled="!item.accountPhone"
+								@click.stop="copyText(item.accountPhone, '电话')"
+							>复制</button>
 						</view>
 						<view class="info-row">
 							<text class="info-row__label">微信</text>
-							<text class="info-row__value">{{ item.wechat || '-' }}</text>
+							<text class="info-row__value info-row__value--copyable" selectable @click="copyText(item.wechat, '微信')">
+								{{ item.wechat || '-' }}
+							</text>
+							<button
+								class="copy-chip"
+								size="mini"
+								:disabled="!item.wechat"
+								@click.stop="copyText(item.wechat, '微信')"
+							>复制</button>
 						</view>
 						<view v-if="item.auditNote" class="info-row">
 							<text class="info-row__label">备注</text>
@@ -161,11 +183,14 @@ function changeStatus(status) {
 	loadList()
 }
 
-function copyText(text) {
-	if (!text) return
+function copyText(text, label = '内容') {
+	if (!text) {
+		uni.showToast({ title: `暂无${label}`, icon: 'none' })
+		return
+	}
 	uni.setClipboardData({
 		data: text,
-		success: () => uni.showToast({ title: '已复制', icon: 'success' })
+		success: () => uni.showToast({ title: `${label}已复制`, icon: 'success' })
 	})
 }
 
@@ -311,6 +336,7 @@ onShow(async () => {
 
 	&__value {
 		flex: 1;
+		min-width: 0;
 		color: $text-primary;
 		word-break: break-all;
 
@@ -318,7 +344,32 @@ onShow(async () => {
 			font-family: monospace;
 			color: $gold;
 		}
+
+		&--copyable {
+			color: $gold;
+		}
 	}
+}
+
+.copy-chip {
+	width: 72rpx;
+	height: 40rpx;
+	line-height: 40rpx;
+	margin: 0 0 0 12rpx;
+	padding: 0;
+	border-radius: 999rpx;
+	background: rgba(212, 175, 55, 0.14);
+	color: $gold;
+	font-size: 20rpx;
+	flex-shrink: 0;
+
+	&[disabled] {
+		opacity: 0.45;
+	}
+}
+
+.copy-chip::after {
+	border: none;
 }
 
 .audit-note {

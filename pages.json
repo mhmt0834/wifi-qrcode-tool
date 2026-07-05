@@ -204,6 +204,15 @@
 				"navigationStyle": "custom",
 				"enablePullDownRefresh": true
 			}
+		},
+		{
+			"path": "pages/platform-settlement/platform-settlement",
+			"style": {
+				"navigationBarTitleText": "激励广告结算",
+				"navigationBarBackgroundColor": "#C80000",
+				"navigationBarTextStyle": "white",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"globalStyle": {
