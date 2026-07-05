@@ -127,6 +127,11 @@ function isActiveWifiAdFreePrivilege(item, now = Date.now()) {
 	return !expireTime || expireTime > now
 }
 
+function isOptionalBenefitDbError(err) {
+	const msg = (err && (err.message || err.errMsg || String(err))) || ''
+	return /collection|database|schema|not exist|does not exist|不存在|集合|权限|permission/i.test(msg)
+}
+
 function getLogMerchantAmount(item) {
 	if (!item) return 0
 	if (item.merchantAmount != null) return Number(item.merchantAmount) || 0
@@ -2054,7 +2059,13 @@ async function handleGetWifiFreeStatus(event, openid) {
 			data: await getWifiFreeStatusData(openid)
 		}
 	} catch (err) {
-		console.error('[wifi_list] getWifiFreeStatus 失败', err)
+		if (isOptionalBenefitDbError(err)) {
+			return {
+				code: 0,
+				msg: 'ok',
+				data: await getWifiFreeStatusData('')
+			}
+		}
 		return {
 			code: 500,
 			msg: err.message || '获取失败',
@@ -2078,7 +2089,6 @@ async function handleGetWifiAdFreePrivilege(event, openid) {
 			}
 		}
 	} catch (err) {
-		console.error('[wifi_list] getWifiAdFreePrivilege 失败', err)
 		return {
 			code: 0,
 			msg: 'ok',
@@ -2164,7 +2174,13 @@ async function handleRecordWifiFreeAdWatch(event, openid) {
 			}
 		}
 	} catch (err) {
-		console.error('[wifi_list] recordWifiFreeAdWatch 失败', err)
+		if (isOptionalBenefitDbError(err)) {
+			return {
+				code: 503,
+				msg: 'WiFi自由功能正在部署，请稍后再试',
+				data: null
+			}
+		}
 		return {
 			code: 500,
 			msg: err.message || '记录失败',
@@ -2212,7 +2228,15 @@ async function handleAdminWifiPrivilegeRequestList(event, openid) {
 			}
 		}
 	} catch (err) {
-		console.error('[wifi_list] adminWifiPrivilegeRequestList 失败', err)
+		if (isOptionalBenefitDbError(err)) {
+			return {
+				code: 0,
+				msg: 'ok',
+				data: {
+					list: []
+				}
+			}
+		}
 		return {
 			code: 500,
 			msg: err.message || '查询失败',
@@ -2354,7 +2378,6 @@ async function handleAdminAuditWifiPrivilegeRequest(event, openid) {
 			}
 		}
 	} catch (err) {
-		console.error('[wifi_list] adminAuditWifiPrivilegeRequest 失败', err)
 		return {
 			code: 500,
 			msg: err.message || '审核失败',
