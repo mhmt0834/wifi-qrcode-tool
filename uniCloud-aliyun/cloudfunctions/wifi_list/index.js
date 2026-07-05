@@ -19,6 +19,7 @@ const agentCollection = db.collection('agent_profile')
 const connectLogCollection = db.collection('wifi_connect_log')
 const revenueLogCollection = db.collection('wifi_revenue_log')
 const agentRevenueCollection = db.collection('agent_revenue_log')
+const settlementCollection = db.collection('ad_settlement_import')
 
 const AD_GROSS_REVENUE_PER_CONNECT = 0.15
 const REWARDED_VIDEO_AD_UNIT_ID = 'adunit-21d6d12eb155bd3b'
@@ -41,6 +42,23 @@ function roundMoney(amount) {
 	return Math.round((Number(amount) || 0) * 10000) / 10000
 }
 
+function moneyToCents(amount) {
+	return Math.round((Number(amount) || 0) * 100)
+}
+
+function centsToMoney(cents) {
+	return roundMoney((Number(cents) || 0) / 100)
+}
+
+function distributeCents(totalCents, count) {
+	const total = Math.max(0, Math.round(Number(totalCents) || 0))
+	const n = Math.max(0, Math.floor(Number(count) || 0))
+	if (!n) return []
+	const base = Math.floor(total / n)
+	const remainder = total % n
+	return Array.from({ length: n }, (_, index) => base + (index < remainder ? 1 : 0))
+}
+
 function calcRevenueShares(grossAmount = AD_GROSS_REVENUE_PER_CONNECT) {
 	const gross = roundMoney(grossAmount)
 	return {
@@ -48,6 +66,31 @@ function calcRevenueShares(grossAmount = AD_GROSS_REVENUE_PER_CONNECT) {
 		platformAmount: roundMoney(gross * PLATFORM_SHARE_RATE),
 		agentAmount: roundMoney(gross * AGENT_SHARE_RATE),
 		merchantAmount: roundMoney(gross * MERCHANT_SHARE_RATE)
+	}
+}
+
+function makeAdEventId(wifiId, userOpenid, now) {
+	const safeWifiId = String(wifiId || 'wifi').replace(/[^a-zA-Z0-9_-]/g, '')
+	const safeUser = String(userOpenid || 'guest').replace(/[^a-zA-Z0-9_-]/g, '')
+	const random = Math.random().toString(36).slice(2, 10)
+	return `rewarded_${safeWifiId}_${safeUser}_${now}_${random}`
+}
+
+function normalizeSettlementDate(value) {
+	const text = String(value || '').trim()
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return ''
+	return text
+}
+
+function getChinaDayRange(dateText) {
+	const dateKey = normalizeSettlementDate(dateText)
+	if (!dateKey) return null
+	const start = new Date(`${dateKey}T00:00:00+08:00`).getTime()
+	if (!Number.isFinite(start)) return null
+	return {
+		dateKey,
+		start,
+		end: start + 86400000
 	}
 }
 
@@ -1675,6 +1718,176 @@ async function handleCheckPlatformAdmin(openid) {
 	}
 }
 
+async function updateRevenueByAdEvent(collection, adEventId, payload) {
+	const eventId = String(adEventId || '').trim()
+	if (!eventId) return false
+	const {
+		data
+	} = await collection.where({
+		adEventId: eventId,
+		type: 'ad',
+		status: 'estimated'
+	}).limit(1).get()
+	if (!data || !data.length) return false
+	await collection.doc(data[0]._id).update(payload)
+	return true
+}
+
+async function handleAdminSettleRewardedAdRevenue(event, openid) {
+	try {
+		const denied = rejectNonAdmin(openid)
+		if (denied) return denied
+		const range = getChinaDayRange((event && (event.settleDate || event.date)) || '')
+		const grossCents = moneyToCents(event && event.grossAmount)
+		const adUnitId = String((event && event.adUnitId) || REWARDED_VIDEO_AD_UNIT_ID).trim()
+		const force = Boolean(event && event.force)
+		if (!range) return {
+			code: 400,
+			msg: '请填写结算日期，格式为 YYYY-MM-DD',
+			data: null
+		}
+		if (!grossCents || grossCents <= 0) return {
+			code: 400,
+			msg: '请填写真实激励广告收入',
+			data: null
+		}
+		const {
+			data: existed
+		} = await settlementCollection.where({
+			settleDate: range.dateKey,
+			adType: REWARDED_VIDEO_AD_TYPE,
+			adUnitId,
+			status: 'settled'
+		}).limit(1).get()
+		if (existed && existed.length && !force) return {
+			code: 409,
+			msg: '该日期激励广告收入已结算，请勿重复导入',
+			data: {
+				settlementId: existed[0]._id,
+				settleDate: range.dateKey
+			}
+		}
+		const {
+			data
+		} = await connectLogCollection.where({
+			adType: REWARDED_VIDEO_AD_TYPE,
+			adUnitId,
+			connectTime: db.command.gte(range.start)
+		}).orderBy('connectTime', 'asc').limit(1000).get()
+		const eligibleRows = (data || []).filter((item) => {
+			if (!item || (item.connectTime || 0) >= range.end) return false
+			if (!item.adEventId || item.settlementStatus === 'settled' || item.settlementId) return false
+			if (!normalizeOpenid(item.merchantOpenid)) return false
+			return true
+		})
+		if (!eligibleRows.length) return {
+			code: 400,
+			msg: '该日期没有可结算的激励广告访问记录',
+			data: {
+				settleDate: range.dateKey,
+				adUnitId
+			}
+		}
+		const now = Date.now()
+		const platformCents = Math.round(grossCents * PLATFORM_SHARE_RATE)
+		const agentCents = Math.round(grossCents * AGENT_SHARE_RATE)
+		const merchantCents = grossCents - platformCents - agentCents
+		const grossParts = distributeCents(grossCents, eligibleRows.length)
+		const platformParts = distributeCents(platformCents, eligibleRows.length)
+		const agentParts = distributeCents(agentCents, eligibleRows.length)
+		const merchantParts = distributeCents(merchantCents, eligibleRows.length)
+		const addRes = await settlementCollection.add({
+			settleDate: range.dateKey,
+			adType: REWARDED_VIDEO_AD_TYPE,
+			adUnitId,
+			grossAmount: centsToMoney(grossCents),
+			platformAmount: centsToMoney(platformCents),
+			agentAmount: centsToMoney(agentCents),
+			merchantAmount: centsToMoney(merchantCents),
+			eligibleCount: eligibleRows.length,
+			settledCount: 0,
+			missingRevenueCount: 0,
+			operatorOpenid: openid,
+			status: 'processing',
+			createTime: now
+		})
+		const settlementId = addRes.id
+		let settledCount = 0
+		let missingRevenueCount = 0
+		for (let index = 0; index < eligibleRows.length; index++) {
+			const item = eligibleRows[index]
+			const grossAmount = centsToMoney(grossParts[index])
+			const platformAmount = centsToMoney(platformParts[index])
+			const agentAmount = centsToMoney(agentParts[index])
+			const merchantAmount = centsToMoney(merchantParts[index])
+			const commonPayload = {
+				grossAmount,
+				platformAmount,
+				agentAmount,
+				merchantAmount,
+				settlementId,
+				settleDate: range.dateKey,
+				settleTime: now,
+				updateTime: now
+			}
+			await connectLogCollection.doc(item._id).update({
+				...commonPayload,
+				income: merchantAmount,
+				settlementStatus: 'settled'
+			})
+			const merchantUpdated = await updateRevenueByAdEvent(revenueLogCollection, item.adEventId, {
+				...commonPayload,
+				title: 'WiFi激励广告收益',
+				amount: merchantAmount,
+				status: 'settled'
+			})
+			let agentUpdated = true
+			if (normalizeOpenid(item.agentOpenid)) {
+				agentUpdated = await updateRevenueByAdEvent(agentRevenueCollection, item.adEventId, {
+					...commonPayload,
+					title: '合伙人激励广告收益',
+					amount: agentAmount,
+					status: 'settled'
+				})
+			}
+			if (merchantUpdated && agentUpdated) {
+				settledCount += 1
+			} else {
+				missingRevenueCount += 1
+			}
+		}
+		await settlementCollection.doc(settlementId).update({
+			status: 'settled',
+			settledCount,
+			missingRevenueCount,
+			updateTime: now
+		})
+		return {
+			code: 0,
+			msg: 'ok',
+			data: {
+				settlementId,
+				settleDate: range.dateKey,
+				adUnitId,
+				grossAmount: centsToMoney(grossCents).toFixed(2),
+				platformAmount: centsToMoney(platformCents).toFixed(2),
+				agentAmount: centsToMoney(agentCents).toFixed(2),
+				merchantAmount: centsToMoney(merchantCents).toFixed(2),
+				eligibleCount: eligibleRows.length,
+				settledCount,
+				missingRevenueCount
+			}
+		}
+	} catch (err) {
+		console.error('[wifi_list] adminSettleRewardedAdRevenue 失败', err)
+		return {
+			code: 500,
+			msg: err.message || '结算失败',
+			data: null
+		}
+	}
+}
+
 function rejectNonAdmin(openid) {
 	if (isPlatformAdmin(openid)) return null
 	return {
@@ -2110,7 +2323,9 @@ async function handleRecordConnect(event, userOpenid) {
 			updatePayload.agentOpenid = agentOpenid
 		}
 		await wifiCollection.doc(wifiId).update(updatePayload)
+		const adEventId = makeAdEventId(wifiId, userOpenid, now)
 		await connectLogCollection.add({
+			adEventId,
 			wifiId,
 			wifiName: doc.wifiName || '',
 			merchantOpenid,
@@ -2123,9 +2338,11 @@ async function handleRecordConnect(event, userOpenid) {
 			grossAmount: shares.grossAmount,
 			platformAmount: shares.platformAmount,
 			agentAmount: shares.agentAmount,
-			merchantAmount: shares.merchantAmount
+			merchantAmount: shares.merchantAmount,
+			settlementStatus: 'estimated'
 		})
 		await revenueLogCollection.add({
+			adEventId,
 			merchantOpenid,
 			agentOpenid,
 			wifiId,
@@ -2144,6 +2361,7 @@ async function handleRecordConnect(event, userOpenid) {
 		})
 		if (agentOpenid) {
 			await agentRevenueCollection.add({
+				adEventId,
 				agentOpenid,
 				merchantOpenid,
 				wifiId,
@@ -2245,6 +2463,7 @@ exports.main = async (event, context) => {
 		'checkPlatformAdmin',
 		'adminWithdrawList',
 		'adminAuditWithdraw',
+		'adminSettleRewardedAdRevenue',
 		'getMerchantProfile',
 		'saveMerchantProfile',
 		'updateWifiStatus',
@@ -2300,6 +2519,8 @@ exports.main = async (event, context) => {
 				return await handleAdminWithdrawList(event, openid)
 			case 'adminAuditWithdraw':
 				return await handleAdminAuditWithdraw(event, openid)
+			case 'adminSettleRewardedAdRevenue':
+				return await handleAdminSettleRewardedAdRevenue(event, openid)
 			case 'getMerchantProfile':
 				return await handleGetMerchantProfile(openid)
 			case 'saveMerchantProfile':

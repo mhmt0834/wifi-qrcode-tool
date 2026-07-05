@@ -9,6 +9,7 @@
 	},
 	"properties": {
 		"_id": { "description": "文档 ID" },
+		"adEventId": { "bsonType": "string", "title": "激励广告事件ID" },
 		"agentOpenid": { "bsonType": "string", "title": "合伙人OpenID" },
 		"merchantOpenid": { "bsonType": "string", "title": "商家OpenID" },
 		"wifiId": { "bsonType": "string", "title": "WiFi文档ID" },
@@ -23,6 +24,9 @@
 		"merchantAmount": { "bsonType": "double", "title": "商家分成(元)" },
 		"type": { "bsonType": "string", "title": "类型", "enum": ["ad", "withdraw"] },
 		"status": { "bsonType": "string", "title": "状态", "enum": ["estimated", "settled", "pending", "approved", "paid", "rejected"] },
+		"settlementId": { "bsonType": "string", "title": "结算批次ID" },
+		"settleDate": { "bsonType": "string", "title": "结算日期" },
+		"settleTime": { "bsonType": "timestamp", "title": "结算时间" },
 		"auditorOpenid": { "bsonType": "string", "title": "审核人OpenID" },
 		"auditNote": { "bsonType": "string", "title": "审核备注" },
 		"auditTime": { "bsonType": "timestamp", "title": "审核时间" },

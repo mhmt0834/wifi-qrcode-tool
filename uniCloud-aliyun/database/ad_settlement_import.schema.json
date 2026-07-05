@@ -1,0 +1,27 @@
+{
+	"bsonType": "object",
+	"description": "流量主激励广告真实收入导入结算批次",
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": { "description": "文档 ID" },
+		"settleDate": { "bsonType": "string", "title": "结算日期" },
+		"adType": { "bsonType": "string", "title": "广告类型" },
+		"adUnitId": { "bsonType": "string", "title": "广告位ID" },
+		"grossAmount": { "bsonType": "double", "title": "真实激励广告总收入(元)" },
+		"platformAmount": { "bsonType": "double", "title": "平台分成(元)" },
+		"agentAmount": { "bsonType": "double", "title": "合伙人总分成(元)" },
+		"merchantAmount": { "bsonType": "double", "title": "商家总分成(元)" },
+		"eligibleCount": { "bsonType": "int", "title": "可结算广告访问数" },
+		"settledCount": { "bsonType": "int", "title": "已结算访问数" },
+		"missingRevenueCount": { "bsonType": "int", "title": "缺失收益记录数" },
+		"operatorOpenid": { "bsonType": "string", "title": "操作管理员OpenID" },
+		"status": { "bsonType": "string", "title": "状态", "enum": ["processing", "settled", "failed"] },
+		"createTime": { "bsonType": "timestamp", "title": "创建时间" },
+		"updateTime": { "bsonType": "timestamp", "title": "更新时间" }
+	}
+}
