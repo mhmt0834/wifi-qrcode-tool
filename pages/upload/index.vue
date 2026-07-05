@@ -248,8 +248,8 @@ async function submitUpload() {
 	if (!canUploadWifi.value) {
 		uni.showModal({
 			title: '暂无上传权限',
-			content: '上传 WiFi 需先完成代理入驻，或联系平台管理员添加。',
-			confirmText: '代理入驻',
+			content: '上传 WiFi 需先完成合伙人入驻，或联系平台管理员添加。',
+			confirmText: '合伙人入驻',
 			success: (res) => {
 				if (res.confirm) uni.navigateTo({ url: '/pages/agent-join/agent-join' })
 			}

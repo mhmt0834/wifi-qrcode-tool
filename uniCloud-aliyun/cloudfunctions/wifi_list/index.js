@@ -408,7 +408,7 @@ async function handleAdd(event, openid) {
 		if (!isPlatformAdmin(openid) && !agentOpenid) {
 			return {
 				code: 403,
-				msg: '请先完成代理入驻，或联系平台管理员添加 WiFi',
+				msg: '请先完成合伙人入驻，或联系平台管理员添加 WiFi',
 				openid,
 				data: null
 			}
@@ -1505,7 +1505,7 @@ async function handleAgentRevenue(openid, range = '全部') {
 			const amount = item.type === 'withdraw' ? (Number(item.amount) || 0) : getLogAgentAmount(item)
 			return {
 				_id: item._id,
-				title: item.title || '代理广告收益',
+				title: item.title || '合伙人广告收益',
 				time: formatDateTime(item.createTime),
 				amount: amount.toFixed(2),
 				type: item.type || 'ad',
@@ -1566,7 +1566,7 @@ async function handleAgentWithdrawRequest(event, openid) {
 		const profile = await getAgentProfileByOpenid(openid)
 		if (!profile || profile.status === 'disabled') return {
 			code: 403,
-			msg: '请先完成代理入驻',
+			msg: '请先完成合伙人入驻',
 			data: null
 		}
 		const requestedAmount = roundMoney(event && event.amount)
@@ -1599,7 +1599,7 @@ async function handleAgentWithdrawRequest(event, openid) {
 		const now = Date.now()
 		const addRes = await agentRevenueCollection.add({
 			agentOpenid: openid,
-			title: '代理提现申请',
+			title: '合伙人提现申请',
 			amount: requestedAmount,
 			type: 'withdraw',
 			status: 'pending',
@@ -1710,9 +1710,9 @@ async function handleAdminWithdrawList(event, openid) {
 			return {
 				_id: item._id,
 				accountType: 'agent',
-				accountLabel: '代理',
+				accountLabel: '合伙人',
 				accountOpenid: item.agentOpenid || '',
-				accountName: (profile && profile.name) || '未填写代理',
+				accountName: (profile && profile.name) || '未填写合伙人',
 				accountPhone: (profile && profile.phone) || '',
 				wechat: (profile && profile.wechat) || '',
 				amount: (Number(item.amount) || 0).toFixed(2),
@@ -2055,7 +2055,7 @@ async function handleRecordConnect(event, userOpenid) {
 				merchantOpenid,
 				wifiId,
 				wifiName: doc.wifiName || '',
-				title: '代理广告收益',
+				title: '合伙人广告收益',
 				amount: shares.agentAmount,
 				adType: REWARDED_VIDEO_AD_TYPE,
 				adUnitId: REWARDED_VIDEO_AD_UNIT_ID,

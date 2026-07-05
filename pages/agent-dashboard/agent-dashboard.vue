@@ -1,20 +1,20 @@
 <template>
 	<view class="page-container">
-		<custom-navbar title="代理中心" :show-back="true" />
+		<custom-navbar title="合伙人中心" :show-back="true" />
 		<view class="page-content">
 			<view v-if="pageLoading" class="list-loading">加载中...</view>
 
 			<template v-else>
 				<view v-if="!profile" class="empty-state">
 					<image class="empty-state__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
-					<view class="empty-state__text">请先完成代理入驻</view>
+					<view class="empty-state__text">请先完成合伙人入驻</view>
 					<button class="btn-primary btn-block empty-btn" @click="goJoin">去入驻</button>
 				</view>
 
 				<template v-else>
 					<view class="hero-card">
-						<view class="hero-card__title">{{ profile.name || '代理' }}</view>
-						<view class="hero-card__desc">{{ profile.city || '城市代理' }}</view>
+						<view class="hero-card__title">{{ profile.name || '合伙人' }}</view>
+						<view class="hero-card__desc">{{ profile.city || '城市合伙人' }}</view>
 					</view>
 
 					<view class="stat-grid">
@@ -58,7 +58,7 @@
 					<view class="card menu-card">
 						<view class="menu-item" @click="goPage('/pages/agent-revenue/agent-revenue')">
 							<image class="menu-item__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
-							<text class="menu-item__text">代理收益</text>
+							<text class="menu-item__text">合伙人收益</text>
 							<text class="list-item__arrow">›</text>
 						</view>
 						<view class="menu-item" @click="goUpload">
@@ -68,7 +68,7 @@
 						</view>
 						<view class="menu-item" @click="goJoin">
 							<image class="menu-item__icon" src="/static/icons/shop.png" mode="aspectFit" />
-							<text class="menu-item__text">编辑代理资料</text>
+							<text class="menu-item__text">编辑合伙人资料</text>
 							<text class="list-item__arrow">›</text>
 						</view>
 					</view>

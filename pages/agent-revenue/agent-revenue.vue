@@ -1,10 +1,10 @@
 <template>
 	<view class="page-container">
-		<custom-navbar title="代理收益" :show-back="true" />
+		<custom-navbar title="合伙人收益" :show-back="true" />
 		<view class="page-content">
 			<view class="hero-card">
 				<view class="hero-card__title">¥{{ totalRevenue }}</view>
-				<view class="hero-card__desc">累计代理收益（元）</view>
+				<view class="hero-card__desc">累计合伙人收益（元）</view>
 			</view>
 
 			<view class="summary-grid">

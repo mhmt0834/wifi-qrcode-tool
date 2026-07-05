@@ -85,8 +85,8 @@
 		},
 		"agentOpenid": {
 			"bsonType": "string",
-			"title": "代理OpenID",
-			"description": "代理归属 openid；代理收益统计和提现以此字段为准"
+			"title": "合伙人OpenID",
+			"description": "合伙人归属 openid；合伙人收益统计和提现以此字段为准"
 		},
 		"viewCount": {
 			"bsonType": "int",

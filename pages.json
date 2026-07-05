@@ -169,7 +169,7 @@
 		{
 			"path": "pages/agent-join/agent-join",
 			"style": {
-				"navigationBarTitleText": "代理入驻",
+				"navigationBarTitleText": "合伙人入驻",
 				"navigationBarBackgroundColor": "#C80000",
 				"navigationBarTextStyle": "white",
 				"navigationStyle": "custom"
@@ -178,7 +178,7 @@
 		{
 			"path": "pages/agent-dashboard/agent-dashboard",
 			"style": {
-				"navigationBarTitleText": "代理中心",
+				"navigationBarTitleText": "合伙人中心",
 				"navigationBarBackgroundColor": "#C80000",
 				"navigationBarTextStyle": "white",
 				"navigationStyle": "custom",
@@ -188,7 +188,7 @@
 		{
 			"path": "pages/agent-revenue/agent-revenue",
 			"style": {
-				"navigationBarTitleText": "代理收益",
+				"navigationBarTitleText": "合伙人收益",
 				"navigationBarBackgroundColor": "#C80000",
 				"navigationBarTextStyle": "white",
 				"navigationStyle": "custom",

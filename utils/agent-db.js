@@ -1,5 +1,5 @@
 /**
- * 代理后台数据（uniCloud 云函数 wifi_list）
+ * 合伙人后台数据（uniCloud 云函数 wifi_list）
  */
 
 import { ensureWxSession } from '@/utils/wx-session.js'
@@ -21,7 +21,7 @@ async function callAgentCloud(data) {
 	const res = await withTimeout(
 		uniCloud.callFunction({ name: functionName, data: payload }),
 		WIFI_CLOUD_TIMEOUT_MS,
-		'代理数据请求超时'
+		'合伙人数据请求超时'
 	)
 	const result = (res && res.result) != null ? res.result : {}
 	if (result.code === undefined) {

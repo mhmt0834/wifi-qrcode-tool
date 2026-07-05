@@ -1,20 +1,20 @@
 <template>
 	<view class="page-container">
-		<custom-navbar title="代理入驻" :show-back="true" />
+		<custom-navbar title="合伙人入驻" :show-back="true" />
 		<view class="page-content">
 			<view class="hero-card">
-				<view class="hero-card__title">城市代理</view>
+				<view class="hero-card__title">城市合伙人</view>
 				<view class="hero-card__desc">推广商家部署 WiFi，获得长期广告分成</view>
 			</view>
 
 			<view class="card">
-				<view class="card__title">代理资料</view>
+				<view class="card__title">合伙人资料</view>
 				<input v-model="form.name" class="input-field" placeholder="姓名" />
 				<input v-model="form.phone" class="input-field" type="number" placeholder="手机号" />
-				<input v-model="form.city" class="input-field" placeholder="代理城市" />
+				<input v-model="form.city" class="input-field" placeholder="合伙人城市" />
 				<input v-model="form.wechat" class="input-field" placeholder="提现微信账号（选填）" />
 				<button class="btn-primary btn-block" :loading="saving" @click="submit">
-					保存并进入代理后台
+					保存并进入合伙人后台
 				</button>
 			</view>
 
@@ -45,8 +45,8 @@ const form = ref({
 })
 const saving = ref(false)
 const benefits = [
-	{ icon: '/static/icons/benefit-wifi.png', title: '部署 WiFi', desc: '代理可上传 WiFi 并绑定真实商家' },
-	{ icon: '/static/icons/benefit-revenue.png', title: '代理收益', desc: '顾客看广告后，代理分成自动累计' },
+	{ icon: '/static/icons/benefit-wifi.png', title: '部署 WiFi', desc: '合伙人可上传 WiFi 并绑定真实商家' },
+	{ icon: '/static/icons/benefit-revenue.png', title: '合伙人收益', desc: '顾客看广告后，合伙人分成自动累计' },
 	{ icon: '/static/icons/benefit-chart.png', title: '数据看板', desc: '查看名下商家、WiFi 和连接数据' }
 ]
 

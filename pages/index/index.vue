@@ -92,7 +92,7 @@
 				</view>
 				<view class="quick-item" @click="goAgentPage">
 					<image class="quick-item__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
-					<text class="quick-item__text">{{ isAgentJoined ? '代理中心' : '代理入驻' }}</text>
+					<text class="quick-item__text">{{ isAgentJoined ? '合伙人中心' : '合伙人入驻' }}</text>
 				</view>
 				<view class="quick-item" @click="switchTab('/pages/nearby/nearby')">
 					<image class="quick-item__icon" src="/static/icons/nearby.png" mode="aspectFit" />
