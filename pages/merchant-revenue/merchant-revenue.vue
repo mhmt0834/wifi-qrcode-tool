@@ -4,13 +4,13 @@
 		<view class="page-content">
 			<view class="hero-card">
 				<view class="hero-card__title">¥{{ totalRevenue }}</view>
-				<view class="hero-card__desc">累计商家收益（元）</view>
+				<view class="hero-card__desc">累计已结算商家收益（元）</view>
 			</view>
 
 			<view class="summary-grid">
 				<view class="summary-item">
 					<text class="summary-item__value">¥{{ todayRevenue }}</text>
-					<text class="summary-item__label">今日收益</text>
+					<text class="summary-item__label">今日已结算</text>
 				</view>
 				<view class="summary-item">
 					<text class="summary-item__value">¥{{ withdrawable }}</text>
@@ -111,12 +111,13 @@ function formatWithdrawStatus(status) {
 	if (status === 'paid') return '提现已打款'
 	if (status === 'approved') return '提现已通过，等待打款'
 	if (status === 'rejected') return '提现已驳回'
+	if (status === 'invalid_estimated') return '预估收益提现已拦截，请联系平台处理'
 	return '提现申请处理中'
 }
 
 function formatAdRevenueStatus(status) {
 	if (status === 'settled') return '激励广告收益已结算'
-	return '激励广告预估收益，结算后更新'
+	return '激励广告预估收益，不可提现'
 }
 
 function submitWithdraw() {

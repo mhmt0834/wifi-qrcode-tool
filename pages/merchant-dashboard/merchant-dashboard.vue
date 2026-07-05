@@ -26,7 +26,7 @@
 
 						<view class="stat-item__value">¥{{ stats.todayRevenue }}</view>
 
-						<view class="stat-item__label">今日收益</view>
+						<view class="stat-item__label">今日已结算</view>
 
 					</view>
 
@@ -34,7 +34,7 @@
 
 						<view class="stat-item__value">¥{{ stats.totalRevenue }}</view>
 
-						<view class="stat-item__label">累计收益</view>
+						<view class="stat-item__label">累计已结算</view>
 
 					</view>
 
@@ -152,7 +152,7 @@
 
 						<text class="record-wifi">{{ item.wifi }}</text>
 
-						<text class="record-income">+¥{{ item.income }}</text>
+						<text class="record-income">预估+¥{{ item.income }}</text>
 
 					</view>
 

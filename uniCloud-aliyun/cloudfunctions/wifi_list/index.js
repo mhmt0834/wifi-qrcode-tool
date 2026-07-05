@@ -63,6 +63,26 @@ function getLogAgentAmount(item) {
 	return Number(item.amount) || 0
 }
 
+function isAdRevenueLog(item) {
+	return item && (item.type || 'ad') !== 'withdraw'
+}
+
+function isSettledAdRevenueLog(item) {
+	return isAdRevenueLog(item) && item.status === 'settled'
+}
+
+function getSettledMerchantAmount(item) {
+	return isSettledAdRevenueLog(item) ? getLogMerchantAmount(item) : 0
+}
+
+function getSettledAgentAmount(item) {
+	return isSettledAdRevenueLog(item) ? getLogAgentAmount(item) : 0
+}
+
+function calcSettledRevenueAmount(rows, getAmount) {
+	return (rows || []).reduce((sum, item) => sum + getAmount(item), 0)
+}
+
 async function getAgentProfileByOpenid(agentOpenid) {
 	const openid = normalizeOpenid(agentOpenid)
 	if (!openid) return null
@@ -124,9 +144,10 @@ function isWithdrawFrozen(item) {
 	return WITHDRAW_FREEZE_STATUSES.includes(item.status || 'pending')
 }
 
-function calcWithdrawFrozenAmount(rows) {
+function calcWithdrawFrozenAmount(rows, excludeId = '') {
 	return (rows || []).reduce((sum, item) => {
 		if (!isWithdrawFrozen(item)) return sum
+		if (excludeId && item._id === excludeId) return sum
 		return sum + (Number(item.amount) || 0)
 	}, 0)
 }
@@ -138,6 +159,35 @@ function calcWithdrawProcessingAmount(rows) {
 		if (status !== 'pending' && status !== 'approved') return sum
 		return sum + (Number(item.amount) || 0)
 	}, 0)
+}
+
+function calcPaidWithdrawAmount(rows) {
+	return (rows || []).reduce((sum, item) => {
+		if (!item || item.type !== 'withdraw' || item.status !== 'paid') return sum
+		return sum + (Number(item.amount) || 0)
+	}, 0)
+}
+
+function calcDisplayPendingWithdrawAmount(rows, settledTotal) {
+	const processing = calcWithdrawProcessingAmount(rows)
+	const afterPaid = Math.max(0, settledTotal - calcPaidWithdrawAmount(rows))
+	return roundMoney(Math.min(processing, afterPaid))
+}
+
+function calcWithdrawableFromSettled(rows, getAmount, excludeWithdrawId = '') {
+	const settledTotal = calcSettledRevenueAmount(rows, getAmount)
+	const frozen = calcWithdrawFrozenAmount(rows, excludeWithdrawId)
+	return roundMoney(Math.max(0, settledTotal - frozen))
+}
+
+function isWithdrawOverSettledBalance(item, rows, getAmount) {
+	if (!item || item.type !== 'withdraw') return false
+	const status = item.status || 'pending'
+	if (status !== 'pending' && status !== 'approved') return false
+	const requestedAmount = Number(item.amount) || 0
+	if (requestedAmount <= 0) return false
+	const availableWithoutThis = calcWithdrawableFromSettled(rows, getAmount, item._id)
+	return requestedAmount > availableWithoutThis
 }
 
 function calcHeat(viewCount, connectCount) {
@@ -1031,16 +1081,12 @@ async function handleMerchantStats(openid) {
 		let todayRevenue = 0
 		let totalRevenue = 0
 		;(revenueRows || []).forEach((item) => {
-			const type = item.type || 'ad'
-			if (type === 'withdraw') {
-				return
-			}
-			const merchantAmount = getLogMerchantAmount(item)
+			const merchantAmount = getSettledMerchantAmount(item)
 			totalRevenue += merchantAmount
 			if ((item.createTime || 0) >= todayStart) todayRevenue += merchantAmount
 		})
-		const withdrawTotal = calcWithdrawFrozenAmount(revenueRows || [])
-		const pendingWithdraw = calcWithdrawProcessingAmount(revenueRows || [])
+		const withdrawable = calcWithdrawableFromSettled(revenueRows || [], getSettledMerchantAmount)
+		const pendingWithdraw = calcDisplayPendingWithdrawAmount(revenueRows || [], totalRevenue)
 		const {
 			total
 		} = await connectLogCollection.where({
@@ -1058,7 +1104,7 @@ async function handleMerchantStats(openid) {
 				todayConnectCount: total || 0,
 				todayRevenue: todayRevenue.toFixed(2),
 				totalRevenue: totalRevenue.toFixed(2),
-				withdrawable: Math.max(0, totalRevenue - withdrawTotal).toFixed(2),
+				withdrawable: withdrawable.toFixed(2),
 				pendingWithdraw: pendingWithdraw.toFixed(2)
 			}
 		}
@@ -1164,26 +1210,28 @@ async function handleMerchantRevenue(openid, range = '全部') {
 		const filtered = filterRevenueByRange(all, range)
 		const list = filtered.map((item) => {
 			const amount = item.type === 'withdraw' ? (Number(item.amount) || 0) : getLogMerchantAmount(item)
+			const status = isWithdrawOverSettledBalance(item, all, getSettledMerchantAmount)
+				? 'invalid_estimated'
+				: (item.status || '')
 			return {
 				_id: item._id,
 				title: item.title || 'WiFi广告收益',
 				time: formatDateTime(item.createTime),
 				amount: amount.toFixed(2),
 				type: item.type || 'ad',
-				status: item.status || '',
+				status,
 				wifiName: item.wifiName || '',
 				merchantAmount: amount.toFixed(2)
 			}
 		})
 		const sumAll = all.reduce((s, item) => {
-			if (item.type === 'withdraw') return s
-			return s + getLogMerchantAmount(item)
+			return s + getSettledMerchantAmount(item)
 		}, 0)
-		const withdrawTotal = calcWithdrawFrozenAmount(all)
-		const pendingWithdraw = calcWithdrawProcessingAmount(all)
+		const withdrawable = calcWithdrawableFromSettled(all, getSettledMerchantAmount)
+		const pendingWithdraw = calcDisplayPendingWithdrawAmount(all, sumAll)
 		const todayRevenue = all.reduce((s, item) => {
-			if (item.type === 'withdraw' || (item.createTime || 0) < startOfTodayMs()) return s
-			return s + getLogMerchantAmount(item)
+			if ((item.createTime || 0) < startOfTodayMs()) return s
+			return s + getSettledMerchantAmount(item)
 		}, 0)
 		return {
 			code: 0,
@@ -1191,7 +1239,7 @@ async function handleMerchantRevenue(openid, range = '全部') {
 			data: {
 				total: sumAll.toFixed(2),
 				today: todayRevenue.toFixed(2),
-				withdrawable: Math.max(0, sumAll - withdrawTotal).toFixed(2),
+				withdrawable: withdrawable.toFixed(2),
 				pendingWithdraw: pendingWithdraw.toFixed(2),
 				list
 			}
@@ -1234,12 +1282,7 @@ async function handleMerchantWithdrawRequest(event, openid) {
 			.limit(1000)
 			.get()
 		const rows = data || []
-		const totalRevenue = rows.reduce((s, item) => {
-			if (item.type === 'withdraw') return s
-			return s + getLogMerchantAmount(item)
-		}, 0)
-		const withdrawTotal = calcWithdrawFrozenAmount(rows)
-		const withdrawable = roundMoney(Math.max(0, totalRevenue - withdrawTotal))
+		const withdrawable = calcWithdrawableFromSettled(rows, getSettledMerchantAmount)
 		if (requestedAmount > withdrawable) {
 			return {
 				code: 400,
@@ -1433,13 +1476,12 @@ async function handleAgentStats(openid) {
 		let todayRevenue = 0
 		let totalRevenue = 0
 		;(revenueRows || []).forEach((item) => {
-			if (item.type === 'withdraw') return
-			const amount = getLogAgentAmount(item)
+			const amount = getSettledAgentAmount(item)
 			totalRevenue += amount
 			if ((item.createTime || 0) >= todayStart) todayRevenue += amount
 		})
-		const withdrawTotal = calcWithdrawFrozenAmount(revenueRows || [])
-		const pendingWithdraw = calcWithdrawProcessingAmount(revenueRows || [])
+		const withdrawable = calcWithdrawableFromSettled(revenueRows || [], getSettledAgentAmount)
+		const pendingWithdraw = calcDisplayPendingWithdrawAmount(revenueRows || [], totalRevenue)
 		const {
 			total: todayConnectCount
 		} = await connectLogCollection.where({
@@ -1456,7 +1498,7 @@ async function handleAgentStats(openid) {
 				todayConnectCount: todayConnectCount || 0,
 				todayRevenue: todayRevenue.toFixed(2),
 				totalRevenue: totalRevenue.toFixed(2),
-				withdrawable: Math.max(0, totalRevenue - withdrawTotal).toFixed(2),
+				withdrawable: withdrawable.toFixed(2),
 				pendingWithdraw: pendingWithdraw.toFixed(2)
 			}
 		}
@@ -1503,27 +1545,29 @@ async function handleAgentRevenue(openid, range = '全部') {
 		const filtered = filterRevenueByRange(all, range)
 		const list = filtered.map((item) => {
 			const amount = item.type === 'withdraw' ? (Number(item.amount) || 0) : getLogAgentAmount(item)
+			const status = isWithdrawOverSettledBalance(item, all, getSettledAgentAmount)
+				? 'invalid_estimated'
+				: (item.status || '')
 			return {
 				_id: item._id,
 				title: item.title || '合伙人广告收益',
 				time: formatDateTime(item.createTime),
 				amount: amount.toFixed(2),
 				type: item.type || 'ad',
-				status: item.status || '',
+				status,
 				wifiName: item.wifiName || '',
 				merchantOpenid: item.merchantOpenid || '',
 				agentAmount: amount.toFixed(2)
 			}
 		})
 		const sumAll = all.reduce((s, item) => {
-			if (item.type === 'withdraw') return s
-			return s + getLogAgentAmount(item)
+			return s + getSettledAgentAmount(item)
 		}, 0)
-		const withdrawTotal = calcWithdrawFrozenAmount(all)
-		const pendingWithdraw = calcWithdrawProcessingAmount(all)
+		const withdrawable = calcWithdrawableFromSettled(all, getSettledAgentAmount)
+		const pendingWithdraw = calcDisplayPendingWithdrawAmount(all, sumAll)
 		const todayRevenue = all.reduce((s, item) => {
-			if (item.type === 'withdraw' || (item.createTime || 0) < startOfTodayMs()) return s
-			return s + getLogAgentAmount(item)
+			if ((item.createTime || 0) < startOfTodayMs()) return s
+			return s + getSettledAgentAmount(item)
 		}, 0)
 		return {
 			code: 0,
@@ -1531,7 +1575,7 @@ async function handleAgentRevenue(openid, range = '全部') {
 			data: {
 				total: sumAll.toFixed(2),
 				today: todayRevenue.toFixed(2),
-				withdrawable: Math.max(0, sumAll - withdrawTotal).toFixed(2),
+				withdrawable: withdrawable.toFixed(2),
 				pendingWithdraw: pendingWithdraw.toFixed(2),
 				list
 			}
@@ -1581,12 +1625,7 @@ async function handleAgentWithdrawRequest(event, openid) {
 			agentOpenid: openid
 		}).limit(1000).get()
 		const rows = data || []
-		const totalRevenue = rows.reduce((s, item) => {
-			if (item.type === 'withdraw') return s
-			return s + getLogAgentAmount(item)
-		}, 0)
-		const withdrawTotal = calcWithdrawFrozenAmount(rows)
-		const withdrawable = roundMoney(Math.max(0, totalRevenue - withdrawTotal))
+		const withdrawable = calcWithdrawableFromSettled(rows, getSettledAgentAmount)
 		if (requestedAmount > withdrawable) {
 			return {
 				code: 400,
@@ -1658,6 +1697,44 @@ async function getMerchantProfileByOpenid(merchantOpenid) {
 
 function getWithdrawCollection(accountType) {
 	return accountType === 'agent' ? agentRevenueCollection : revenueLogCollection
+}
+
+function getSettledAmountGetter(accountType) {
+	return accountType === 'agent' ? getSettledAgentAmount : getSettledMerchantAmount
+}
+
+async function getAccountRevenueRows(accountType, withdrawDoc) {
+	if (accountType === 'agent') {
+		const {
+			data
+		} = await agentRevenueCollection.where({
+			agentOpenid: withdrawDoc.agentOpenid || ''
+		}).limit(1000).get()
+		return data || []
+	}
+	const {
+		data
+	} = await revenueLogCollection.where({
+		merchantOpenid: withdrawDoc.merchantOpenid || ''
+	}).limit(1000).get()
+	return data || []
+}
+
+async function verifyWithdrawCoveredBySettledRevenue(accountType, withdrawDoc) {
+	const rows = await getAccountRevenueRows(accountType, withdrawDoc)
+	const getAmount = getSettledAmountGetter(accountType)
+	const availableWithoutThis = calcWithdrawableFromSettled(rows, getAmount, withdrawDoc._id)
+	const requestedAmount = roundMoney(withdrawDoc.amount)
+	if (requestedAmount > availableWithoutThis) {
+		return {
+			ok: false,
+			withdrawable: availableWithoutThis.toFixed(2)
+		}
+	}
+	return {
+		ok: true,
+		withdrawable: availableWithoutThis.toFixed(2)
+	}
 }
 
 async function handleAdminWithdrawList(event, openid) {
@@ -1779,6 +1856,14 @@ async function handleAdminAuditWithdraw(event, openid) {
 				msg: '只有待审核申请可以通过',
 				data: null
 			}
+			const covered = await verifyWithdrawCoveredBySettledRevenue(accountType, doc)
+			if (!covered.ok) return {
+				code: 400,
+				msg: `已结算可提现余额不足，当前可通过金额 ¥${covered.withdrawable}`,
+				data: {
+					withdrawable: covered.withdrawable
+				}
+			}
 			payload = {
 				status: 'approved',
 				auditorOpenid: openid,
@@ -1805,6 +1890,14 @@ async function handleAdminAuditWithdraw(event, openid) {
 				code: 400,
 				msg: '请先审核通过，再标记已打款',
 				data: null
+			}
+			const covered = await verifyWithdrawCoveredBySettledRevenue(accountType, doc)
+			if (!covered.ok) return {
+				code: 400,
+				msg: `已结算可提现余额不足，当前可打款金额 ¥${covered.withdrawable}`,
+				data: {
+					withdrawable: covered.withdrawable
+				}
 			}
 			payload = {
 				status: 'paid',

@@ -20,11 +20,11 @@
 					<view class="stat-grid">
 						<view class="stat-item stat-item--highlight">
 							<view class="stat-item__value">¥{{ stats.todayRevenue }}</view>
-							<view class="stat-item__label">今日收益</view>
+							<view class="stat-item__label">今日已结算</view>
 						</view>
 						<view class="stat-item">
 							<view class="stat-item__value">¥{{ stats.totalRevenue }}</view>
-							<view class="stat-item__label">累计收益</view>
+							<view class="stat-item__label">累计已结算</view>
 						</view>
 						<view class="stat-item">
 							<view class="stat-item__value">¥{{ stats.withdrawable }}</view>
