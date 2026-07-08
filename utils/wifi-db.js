@@ -136,6 +136,10 @@ export function mapWifiDocToListItem(doc, index = 0) {
 
 		tags: doc.tags || '',
 
+		promoVideoUrl: doc.promoVideoUrl || '',
+
+		promoVideoStatus: doc.promoVideoStatus || '未配置',
+
 		qrCodeUrl: doc.qrCodeUrl || '',
 
 		qrCodeStatus: doc.qrCodeStatus || '未生成',
@@ -170,7 +174,11 @@ export function mapWifiDocToManageDetail(doc) {
 
 		qrCodeStatus: doc.qrCodeStatus || base.qrCodeStatus || '未生成',
 
-		qrCodeCreateTime: doc.qrCodeCreateTime || base.qrCodeCreateTime || null
+		qrCodeCreateTime: doc.qrCodeCreateTime || base.qrCodeCreateTime || null,
+
+		promoVideoUrl: doc.promoVideoUrl || base.promoVideoUrl || '',
+
+		promoVideoStatus: doc.promoVideoStatus || base.promoVideoStatus || '未配置'
 
 	}
 

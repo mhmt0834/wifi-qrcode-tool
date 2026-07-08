@@ -134,6 +134,24 @@
 			"trim": "both",
 			"maxLength": 128
 		},
+		"promoVideoUrl": {
+			"bsonType": "string",
+			"title": "商家宣传视频",
+			"description": "当前 WiFi 对应商家的宣传视频地址，仅审核通过后用于获取密码前播放",
+			"trim": "both",
+			"maxLength": 500
+		},
+		"promoVideoStatus": {
+			"bsonType": "string",
+			"title": "宣传视频审核状态",
+			"description": "未配置 / 待审核 / 已通过 / 已拒绝",
+			"defaultValue": "未配置",
+			"enum": ["未配置", "待审核", "已通过", "已拒绝"]
+		},
+		"promoVideoUpdateTime": {
+			"bsonType": "timestamp",
+			"title": "宣传视频更新时间"
+		},
 		"qrCodeUrl": {
 			"bsonType": "string",
 			"title": "二维码图片",

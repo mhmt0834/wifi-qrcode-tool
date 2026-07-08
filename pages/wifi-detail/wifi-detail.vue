@@ -67,8 +67,8 @@
 				<!-- 未解锁 -->
 				<view v-if="!passwordUnlocked" class="card lock-card">
 					<image class="lock-card__icon" src="/static/icons/wifi.png" mode="aspectFit" />
-					<view class="card__desc">点击下方按钮获取 WiFi 密码</view>
-					<view class="card__desc lock-tip">密码不会提前显示，获取后可复制连接</view>
+					<view class="card__desc">观看商家宣传视频获取 WiFi 密码</view>
+					<view class="card__desc lock-tip">看满10秒后可跳过并获取，退出后需重新观看</view>
 				</view>
 
 				<!-- 已解锁：展示密码 -->
@@ -83,8 +83,8 @@
 				<button
 					v-if="!passwordUnlocked && wifiStatus !== '离线'"
 					class="btn-primary btn-block connect-btn"
-					:loading="adLoading"
-					:disabled="adLoading"
+					:loading="unlockLoading"
+					:disabled="unlockLoading"
 					@click="onGetPassword"
 				>
 					获取WiFi密码
@@ -111,6 +111,35 @@
 				</template>
 			</template>
 		</view>
+
+		<view v-if="promoVideoVisible" class="video-mask">
+			<view class="video-panel">
+				<view class="video-panel__head">
+					<view>
+						<view class="video-panel__title">{{ shopName }}宣传视频</view>
+						<view class="video-panel__desc">看满10秒后可获取 WiFi 密码</view>
+					</view>
+					<button v-if="promoCanSkip" class="skip-btn" size="mini" @click="finishPromoVideo">跳过获取</button>
+					<view v-else class="countdown">{{ promoRemainText }}</view>
+				</view>
+				<video
+					id="promoVideo"
+					class="promo-video"
+					:src="promoVideoUrl"
+					:controls="false"
+					:show-play-btn="false"
+					:show-center-play-btn="false"
+					:show-fullscreen-btn="false"
+					:enable-progress-gesture="false"
+					:autoplay="true"
+					:muted="false"
+					object-fit="contain"
+					@timeupdate="onPromoVideoTimeUpdate"
+					@ended="finishPromoVideo"
+					@error="onPromoVideoError"
+				/>
+			</view>
+		</view>
 	</view>
 </template>
 
@@ -118,7 +147,6 @@
 import { ref, computed } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
-import { showRewardAdWithTicket, getRewardAdFailMessage } from '@/utils/ad-provider.js'
 import {
 	autoConnectWifi,
 	goToSystemWifiPage,
@@ -132,7 +160,6 @@ import {
 	resolveWifiIdFromOptions
 } from '@/utils/wifi-qr.js'
 import { recordWifiView, recordWifiConnect } from '@/utils/merchant-db.js'
-import { getWifiAdFreePrivilege } from '@/utils/benefit-db.js'
 
 const pageLoading = ref(true)
 const wifiNotFound = ref(false)
@@ -148,11 +175,15 @@ const wifiDistance = ref('--')
 const wifiStatus = ref('在线')
 const wifiPassword = ref('')
 const passwordUnlocked = ref(false)
-const adLoading = ref(false)
+const unlockLoading = ref(false)
 const connecting = ref(false)
 const connectStatus = ref('idle')
 const wifiDocId = ref('')
-const lastAdTicket = ref('')
+const promoVideoUrl = ref('')
+const promoVideoVisible = ref(false)
+const promoWatchedSeconds = ref(0)
+const promoCanSkip = computed(() => promoWatchedSeconds.value >= 10)
+const promoRemainText = computed(() => `${Math.max(0, 10 - Math.floor(promoWatchedSeconds.value))}s`)
 
 const statusTitle = computed(() => {
 	if (connectStatus.value === 'connecting') return '正在自动连接 WiFi...'
@@ -197,6 +228,7 @@ async function loadPublicWifi(id) {
 		viewCount.value = doc.viewCount
 		wifiSignal.value = doc.signal || '强'
 		wifiStatus.value = doc.status || '在线'
+		promoVideoUrl.value = doc.promoVideoUrl || ''
 		recordWifiView(id)
 	} catch (err) {
 		loadError.value = '加载失败，请稍后重试'
@@ -209,12 +241,11 @@ function goHome() {
 	uni.switchTab({ url: '/pages/index/index' })
 }
 
-/** 获取连接凭证（普通用户需广告凭证；免广告特权用户由云端特权放行） */
-async function unlockPassword(adTicket = '', options = {}) {
+/** 获取连接凭证（看满商家宣传视频后放行） */
+async function unlockPassword() {
 	if (!wifiDocId.value) return false
-	const bypassAd = !!options.bypassAd
-	if (!bypassAd && (!adTicket || adTicket !== lastAdTicket.value)) {
-		uni.showToast({ title: '请先完整观看激励视频', icon: 'none' })
+	if (!promoCanSkip.value) {
+		uni.showToast({ title: '请先观看满10秒', icon: 'none' })
 		return false
 	}
 
@@ -228,10 +259,10 @@ async function unlockPassword(adTicket = '', options = {}) {
 		}
 
 		await recordWifiConnect(wifiDocId.value, {
-			source: bypassAd ? 'ad_free_privilege' : 'rewarded_ad'
+			source: 'promo_video'
 		})
 		passwordUnlocked.value = true
-		uni.showToast({ title: bypassAd ? '特权免广告，密码已获取' : '密码已获取', icon: 'success' })
+		uni.showToast({ title: '密码已获取', icon: 'success' })
 		return true
 	} catch (err) {
 		uni.showToast({ title: err.message || '获取密码失败', icon: 'none' })
@@ -250,30 +281,45 @@ async function onGetPassword() {
 	}
 	if (passwordUnlocked.value) return
 
-	adLoading.value = true
+	if (!promoVideoUrl.value) {
+		uni.showModal({
+			title: '暂不可获取',
+			content: '该商家宣传视频尚未配置或未通过审核，请联系商家处理。',
+			showCancel: false
+		})
+		return
+	}
+	promoWatchedSeconds.value = 0
+	promoVideoVisible.value = true
+}
+
+function onPromoVideoTimeUpdate(event) {
+	const current = Number(event && event.detail && event.detail.currentTime)
+	if (!isNaN(current) && current > promoWatchedSeconds.value) {
+		promoWatchedSeconds.value = Math.min(current, 10)
+	}
+}
+
+async function finishPromoVideo() {
+	if (!promoCanSkip.value || unlockLoading.value) return
+	unlockLoading.value = true
 	try {
-		const privilege = await getWifiAdFreePrivilege().catch(() => ({ active: false }))
-		if (privilege && privilege.active) {
-			await unlockPassword('', { bypassAd: true })
-			return
-		}
-		lastAdTicket.value = ''
-		const adResult = await showRewardAdWithTicket()
-		if (!adResult.completed || !adResult.ticket) {
-			uni.showModal({
-				title: '广告未播放',
-				content: adResult.error || getRewardAdFailMessage(),
-				showCancel: false
-			})
-			return
-		}
-		lastAdTicket.value = adResult.ticket
-		await unlockPassword(adResult.ticket)
+		const ok = await unlockPassword()
+		if (ok) promoVideoVisible.value = false
 	} catch (err) {
 		uni.showToast({ title: '操作失败，请重试', icon: 'none' })
 	} finally {
-		adLoading.value = false
+		unlockLoading.value = false
 	}
+}
+
+function onPromoVideoError() {
+	uni.showModal({
+		title: '视频播放失败',
+		content: '商家宣传视频暂时无法播放，请稍后重试。',
+		showCancel: false
+	})
+	promoVideoVisible.value = false
 }
 
 function copyPassword() {
@@ -326,6 +372,7 @@ onLoad(async (options) => {
 })
 
 onUnload(() => {
+	promoVideoVisible.value = false
 	stopWifiModule()
 })
 </script>
@@ -477,5 +524,72 @@ onUnload(() => {
 
 .system-wifi-btn {
 	margin-top: 20rpx;
+}
+
+.video-mask {
+	position: fixed;
+	z-index: 999;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.86);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 32rpx;
+	box-sizing: border-box;
+}
+
+.video-panel {
+	width: 100%;
+	background: #111;
+	border-radius: $radius-md;
+	overflow: hidden;
+	border: 1rpx solid rgba(212, 175, 55, 0.35);
+
+	&__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16rpx;
+		padding: 24rpx;
+	}
+
+	&__title {
+		color: $text-primary;
+		font-size: 30rpx;
+		font-weight: 700;
+	}
+
+	&__desc {
+		color: $text-secondary;
+		font-size: 24rpx;
+		margin-top: 8rpx;
+	}
+}
+
+.promo-video {
+	width: 100%;
+	height: 760rpx;
+	background: #000;
+}
+
+.countdown,
+.skip-btn {
+	flex-shrink: 0;
+}
+
+.countdown {
+	color: $gold;
+	font-size: 28rpx;
+	font-weight: 700;
+}
+
+.skip-btn {
+	color: #111 !important;
+	background: $gold !important;
+	border-radius: 999rpx !important;
+	padding: 0 24rpx !important;
 }
 </style>

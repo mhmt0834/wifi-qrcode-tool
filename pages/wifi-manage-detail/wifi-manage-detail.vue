@@ -30,6 +30,14 @@
 						<text class="info-label">介绍</text>
 						<text class="info-value">{{ detail.intro || '—' }}</text>
 					</view>
+					<view class="info-row">
+						<text class="info-label">宣传视频</text>
+						<text class="info-value">{{ detail.promoVideoUrl || '未配置' }}</text>
+					</view>
+					<view class="info-row">
+						<text class="info-label">视频审核</text>
+						<text class="info-value">{{ detail.promoVideoStatus || '未配置' }}</text>
+					</view>
 					<view class="info-row info-row--tags">
 						<text class="info-label">标签</text>
 						<view v-if="tagList.length" class="tag-list">
@@ -76,6 +84,10 @@
 					<input v-model="form.wifiPassword" class="input-field" password placeholder="WiFi密码" />
 					<input v-model="form.shopName" class="input-field" placeholder="店铺名称" />
 					<input v-model="form.address" class="input-field" placeholder="地址" />
+					<input v-model="form.promoVideoUrl" class="input-field" placeholder="商家宣传视频地址（每个WiFi单独配置）" />
+					<picker mode="selector" :range="promoStatusOptions" @change="onPromoStatusChange">
+						<view class="picker-field">视频审核：{{ form.promoVideoStatus || '未配置' }}</view>
+					</picker>
 					<textarea
 						v-model="form.intro"
 						class="textarea-field"
@@ -213,10 +225,13 @@ const form = ref({
 	wifiPassword: '',
 	shopName: '',
 	address: '',
+	promoVideoUrl: '',
+	promoVideoStatus: '未配置',
 	intro: '',
 	tags: ''
 })
 const merchantOpenidInput = ref('')
+const promoStatusOptions = ['未配置', '待审核', '已通过', '已拒绝']
 
 const tagList = computed(() => {
 	const raw = (detail.value && detail.value.tags) || ''
@@ -254,9 +269,16 @@ function fillFormFromDetail(d) {
 		wifiPassword: d.password || d.wifiPassword || '',
 		shopName: d.shop || d.shopName || '',
 		address: d.address || '',
+		promoVideoUrl: d.promoVideoUrl || '',
+		promoVideoStatus: d.promoVideoStatus || '未配置',
 		intro: d.intro || '',
 		tags: d.tags || ''
 	}
+}
+
+function onPromoStatusChange(e) {
+	const index = Number(e && e.detail && e.detail.value)
+	form.value.promoVideoStatus = promoStatusOptions[index] || '未配置'
 }
 
 async function loadDetail() {
@@ -582,6 +604,17 @@ onLoad((options) => {
 	font-size: 28rpx;
 	margin-top: 16rpx;
 	box-sizing: border-box;
+}
+
+.picker-field {
+	width: 100%;
+	background: $bg-input;
+	border-radius: $radius-sm;
+	padding: 20rpx;
+	font-size: 28rpx;
+	margin-top: 16rpx;
+	box-sizing: border-box;
+	color: $text-primary;
 }
 
 .status-switch {

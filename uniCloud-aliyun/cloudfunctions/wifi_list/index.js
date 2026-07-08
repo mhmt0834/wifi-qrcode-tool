@@ -37,6 +37,11 @@ const WIFI_AD_FREE_PRIVILEGE_TYPE = 'wifi_ad_free'
 const WIFI_FREE_MONTHLY_REQUIRED_COUNT = 8
 const WIFI_FREE_PERMANENT_REQUIRED_COUNT = 18
 const WIFI_FREE_MONTHLY_DAYS = 30
+const PROMO_VIDEO_APPROVED = '已通过'
+const DEFAULT_PROMO_VIDEOS = [
+	{ keyword: '云顶台球厅', url: '/static/promo/yunding-billiards.mp4' },
+	{ keyword: '七洲饭餐厅', url: '/static/promo/qizhou-restaurant.mp4' }
+]
 
 /**
  * 平台管理员 openid 白名单。
@@ -563,6 +568,8 @@ async function handleAdd(event, openid) {
 			address: String(address || '').trim(),
 			intro: String(intro || '').trim(),
 			tags: String(tags || '').trim(),
+			promoVideoUrl: '',
+			promoVideoStatus: '未配置',
 			qrCodeStatus: '未生成'
 		}
 		const res = await wifiCollection.add(doc)
@@ -636,6 +643,8 @@ async function handleDelete(event, openid) {
 function enrichWifiDoc(item) {
 	const viewCount = item.viewCount || 0
 	const connectCount = item.connectCount || 0
+	const fallbackPromo = DEFAULT_PROMO_VIDEOS.find((video) => String(item.shopName || '').indexOf(video.keyword) !== -1)
+	const promoVideoUrl = item.promoVideoUrl || (fallbackPromo && fallbackPromo.url) || ''
 	return {
 		...item,
 		viewCount,
@@ -645,6 +654,8 @@ function enrichWifiDoc(item) {
 		address: item.address || '',
 		intro: item.intro || '',
 		tags: item.tags || '',
+		promoVideoUrl,
+		promoVideoStatus: item.promoVideoStatus || (promoVideoUrl ? PROMO_VIDEO_APPROVED : '未配置'),
 		qrCodeUrl: item.qrCodeUrl || '',
 		qrCodeStatus: item.qrCodeStatus || '未生成',
 		qrCodeCreateTime: item.qrCodeCreateTime || null
@@ -684,6 +695,8 @@ function mapWifiPublicDetail(doc) {
 		shopName: enriched.shopName,
 		intro: enriched.intro,
 		tags: enriched.tags,
+		promoVideoUrl: enriched.promoVideoStatus === PROMO_VIDEO_APPROVED ? enriched.promoVideoUrl : '',
+		promoVideoStatus: enriched.promoVideoStatus,
 		address: enriched.address,
 		signal: enriched.signal,
 		status: enriched.status,
@@ -908,6 +921,8 @@ async function handleUpdateWifi(event, openid) {
 			address,
 			intro,
 			tags,
+			promoVideoUrl,
+			promoVideoStatus,
 			latitude,
 			longitude
 		} = event || {}
@@ -945,6 +960,12 @@ async function handleUpdateWifi(event, openid) {
 		if (address != null) patch.address = String(address).trim()
 		if (intro != null) patch.intro = String(intro).trim()
 		if (tags != null) patch.tags = String(tags).trim()
+		if (promoVideoUrl != null) {
+			patch.promoVideoUrl = String(promoVideoUrl).trim()
+			patch.promoVideoStatus = isPlatformAdmin(openid) ? PROMO_VIDEO_APPROVED : '待审核'
+			patch.promoVideoUpdateTime = Date.now()
+		}
+		if (promoVideoStatus != null && isPlatformAdmin(openid)) patch.promoVideoStatus = String(promoVideoStatus).trim()
 		if (latitude != null) patch.latitude = Number(latitude)
 		if (longitude != null) patch.longitude = Number(longitude)
 		await wifiCollection.doc(id).update(patch)
@@ -2787,6 +2808,7 @@ async function handleRecordConnect(event, userOpenid) {
 		} = event || {}
 		const source = String((event && event.source) || 'rewarded_ad').trim()
 		const isAdFreePrivilegeConnect = source === 'ad_free_privilege'
+		const isPromoVideoConnect = source === 'promo_video'
 		if (!wifiId) return {
 			code: 0,
 			msg: 'ok',
@@ -2831,7 +2853,7 @@ async function handleRecordConnect(event, userOpenid) {
 			updatePayload.agentOpenid = agentOpenid
 		}
 		await wifiCollection.doc(wifiId).update(updatePayload)
-		if (isAdFreePrivilegeConnect) {
+		if (isAdFreePrivilegeConnect || isPromoVideoConnect) {
 			await connectLogCollection.add({
 				wifiId,
 				wifiName: doc.wifiName || '',
@@ -2839,14 +2861,14 @@ async function handleRecordConnect(event, userOpenid) {
 				agentOpenid,
 				userOpenid: userOpenid || '',
 				connectTime: now,
-				adType: 'ad_free_privilege',
+				adType: isPromoVideoConnect ? 'merchant_promo_video' : 'ad_free_privilege',
 				adUnitId: '',
 				income: 0,
 				grossAmount: 0,
 				platformAmount: 0,
 				agentAmount: 0,
 				merchantAmount: 0,
-				source: 'ad_free_privilege'
+				source: isPromoVideoConnect ? 'promo_video' : 'ad_free_privilege'
 			})
 			return {
 				code: 0,
@@ -2855,7 +2877,8 @@ async function handleRecordConnect(event, userOpenid) {
 					connectCount,
 					income: 0,
 					merchantAmount: 0,
-					adFree: true
+					adFree: isAdFreePrivilegeConnect,
+					promoVideo: isPromoVideoConnect
 				}
 			}
 		}
