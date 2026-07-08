@@ -38,12 +38,12 @@
 						<text class="mini-stat__label">连接</text>
 					</view>
 					<view class="mini-stat">
-						<text class="mini-stat__val">¥{{ item.todayRevenue }}</text>
-						<text class="mini-stat__label">今日收益</text>
+						<text class="mini-stat__val">{{ item.status }}</text>
+						<text class="mini-stat__label">状态</text>
 					</view>
 					<view class="mini-stat">
-						<text class="mini-stat__val">¥{{ item.totalRevenue }}</text>
-						<text class="mini-stat__label">累计收益</text>
+						<text class="mini-stat__val">{{ item.heat }}</text>
+						<text class="mini-stat__label">热度</text>
 					</view>
 				</view>
 			</view>

@@ -91,7 +91,7 @@
 					<text class="quick-item__text">{{ isMerchantJoined ? '商家中心' : '商家入驻' }}</text>
 				</view>
 				<view class="quick-item" @click="goAgentPage">
-					<image class="quick-item__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
+					<image class="quick-item__icon" src="/static/icons/benefit-chart.png" mode="aspectFit" />
 					<text class="quick-item__text">{{ isAgentJoined ? '合伙人中心' : '合伙人入驻' }}</text>
 				</view>
 				<view class="quick-item" @click="switchTab('/pages/nearby/nearby')">

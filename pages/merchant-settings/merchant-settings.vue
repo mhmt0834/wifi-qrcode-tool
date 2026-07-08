@@ -34,18 +34,6 @@
 						<text>连接成功推送优惠</text>
 						<switch :checked="form.pushDeal" @change="form.pushDeal = $event.detail.value" color="#d4af37" />
 					</view>
-					<view class="setting-row">
-						<text>收益自动提现</text>
-						<switch :checked="form.autoWithdraw" @change="form.autoWithdraw = $event.detail.value" color="#d4af37" />
-					</view>
-				</view>
-
-				<view class="card">
-					<view class="card__title">提现账户</view>
-					<view class="form-item">
-						<text class="form-label">微信账号</text>
-						<input v-model="form.wechat" class="form-input" placeholder="绑定微信收款账号" />
-					</view>
 				</view>
 
 				<button class="btn-primary btn-block" style="margin-top:30rpx" :loading="saving" @click="saveSettings">
@@ -73,7 +61,6 @@ const form = ref({
 	address: '',
 	defaultAd: true,
 	pushDeal: true,
-	autoWithdraw: false,
 	wechat: ''
 })
 
@@ -92,7 +79,6 @@ function applyProfile(profile) {
 		address: profile.address || '',
 		defaultAd: profile.defaultAd !== false,
 		pushDeal: profile.pushDeal !== false,
-		autoWithdraw: !!profile.autoWithdraw,
 		wechat: profile.wechat || ''
 	}
 }

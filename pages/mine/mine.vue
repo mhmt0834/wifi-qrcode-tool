@@ -98,16 +98,6 @@
 					<text class="menu-item__text menu-item__text--gold">WiFi自由审核</text>
 					<text class="list-item__arrow">›</text>
 				</view>
-				<view class="menu-item" @click="goPage('/pages/platform-settlement/platform-settlement')">
-					<image class="menu-item__icon" src="/static/icons/benefit-chart.png" mode="aspectFit" />
-					<text class="menu-item__text menu-item__text--gold">激励广告结算</text>
-					<text class="list-item__arrow">›</text>
-				</view>
-				<view class="menu-item" @click="goPage('/pages/platform-withdraw/platform-withdraw')">
-					<image class="menu-item__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
-					<text class="menu-item__text menu-item__text--gold">平台提现审核</text>
-					<text class="list-item__arrow">›</text>
-				</view>
 			</view>
 
 			<view class="card menu-card menu-card--policy">

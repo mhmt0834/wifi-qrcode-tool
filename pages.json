@@ -148,16 +148,6 @@
 			}
 		},
 		{
-			"path": "pages/merchant-revenue/merchant-revenue",
-			"style": {
-				"navigationBarTitleText": "收益管理",
-				"navigationBarBackgroundColor": "#C80000",
-				"navigationBarTextStyle": "white",
-				"navigationStyle": "custom",
-				"enablePullDownRefresh": true
-			}
-		},
-		{
 			"path": "pages/merchant-settings/merchant-settings",
 			"style": {
 				"navigationBarTitleText": "店铺设置",
@@ -183,35 +173,6 @@
 				"navigationBarTextStyle": "white",
 				"navigationStyle": "custom",
 				"enablePullDownRefresh": true
-			}
-		},
-		{
-			"path": "pages/agent-revenue/agent-revenue",
-			"style": {
-				"navigationBarTitleText": "合伙人收益",
-				"navigationBarBackgroundColor": "#C80000",
-				"navigationBarTextStyle": "white",
-				"navigationStyle": "custom",
-				"enablePullDownRefresh": true
-			}
-		},
-		{
-			"path": "pages/platform-withdraw/platform-withdraw",
-			"style": {
-				"navigationBarTitleText": "提现审核",
-				"navigationBarBackgroundColor": "#C80000",
-				"navigationBarTextStyle": "white",
-				"navigationStyle": "custom",
-				"enablePullDownRefresh": true
-			}
-		},
-		{
-			"path": "pages/platform-settlement/platform-settlement",
-			"style": {
-				"navigationBarTitleText": "激励广告结算",
-				"navigationBarBackgroundColor": "#C80000",
-				"navigationBarTextStyle": "white",
-				"navigationStyle": "custom"
 			}
 		},
 		{

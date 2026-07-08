@@ -4,7 +4,7 @@
 		<view class="page-content">
 			<view class="hero-card">
 				<view class="hero-card__title">城市合伙人</view>
-				<view class="hero-card__desc">推广商家部署 WiFi，获得长期广告分成</view>
+				<view class="hero-card__desc">推广商家部署 WiFi，查看连接数据</view>
 			</view>
 
 			<view class="card">
@@ -12,7 +12,7 @@
 				<input v-model="form.name" class="input-field" placeholder="姓名" />
 				<input v-model="form.phone" class="input-field" type="number" placeholder="手机号" />
 				<input v-model="form.city" class="input-field" placeholder="合伙人城市" />
-				<input v-model="form.wechat" class="input-field" placeholder="提现微信账号（选填）" />
+				<input v-model="form.wechat" class="input-field" placeholder="微信账号（选填）" />
 				<button class="btn-primary btn-block" :loading="saving" @click="submit">
 					保存并进入合伙人后台
 				</button>
@@ -46,7 +46,7 @@ const form = ref({
 const saving = ref(false)
 const benefits = [
 	{ icon: '/static/icons/benefit-wifi.png', title: '部署 WiFi', desc: '合伙人可上传 WiFi 并绑定真实商家' },
-	{ icon: '/static/icons/benefit-revenue.png', title: '合伙人收益', desc: '顾客看广告后，合伙人分成自动累计' },
+	{ icon: '/static/icons/benefit-chart.png', title: '连接数据', desc: '查看名下商家 WiFi 的连接表现' },
 	{ icon: '/static/icons/benefit-chart.png', title: '数据看板', desc: '查看名下商家、WiFi 和连接数据' }
 ]
 

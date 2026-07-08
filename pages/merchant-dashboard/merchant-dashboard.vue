@@ -24,53 +24,9 @@
 
 					<view class="stat-item">
 
-						<view class="stat-item__value">¥{{ stats.todayRevenue }}</view>
-
-						<view class="stat-item__label">今日已结算</view>
-
-					</view>
-
-					<view class="stat-item">
-
-						<view class="stat-item__value">¥{{ stats.totalRevenue }}</view>
-
-						<view class="stat-item__label">累计已结算</view>
-
-					</view>
-
-					<view class="stat-item">
-
-						<view class="stat-item__value">¥{{ stats.withdrawable }}</view>
-
-						<view class="stat-item__label">可提现</view>
-
-					</view>
-
-					<view class="stat-item stat-item--highlight">
-
 						<view class="stat-item__value">{{ stats.todayConnectCount }}</view>
 
 						<view class="stat-item__label">今日连接</view>
-
-					</view>
-
-				</view>
-
-				<view class="stat-grid stat-grid--secondary">
-
-					<view class="stat-item">
-
-						<view class="stat-item__value">{{ stats.wifiCount }}</view>
-
-						<view class="stat-item__label">WiFi总数</view>
-
-					</view>
-
-					<view class="stat-item">
-
-						<view class="stat-item__value">{{ stats.viewCount }}</view>
-
-						<view class="stat-item__label">浏览次数</view>
 
 					</view>
 
@@ -84,9 +40,17 @@
 
 					<view class="stat-item">
 
-						<view class="stat-item__value">{{ stats.pendingWithdraw }}</view>
+						<view class="stat-item__value">{{ stats.viewCount }}</view>
 
-						<view class="stat-item__label">提现中</view>
+						<view class="stat-item__label">浏览次数</view>
+
+					</view>
+
+					<view class="stat-item stat-item--highlight">
+
+						<view class="stat-item__value">{{ stats.wifiCount }}</view>
+
+						<view class="stat-item__label">WiFi总数</view>
 
 					</view>
 
@@ -101,16 +65,6 @@
 						<image class="menu-item__icon" src="/static/icons/benefit-wifi.png" mode="aspectFit" />
 
 						<text class="menu-item__text">WiFi管理</text>
-
-						<text class="list-item__arrow">›</text>
-
-					</view>
-
-					<view class="menu-item" @click="goPage('/pages/merchant-revenue/merchant-revenue')">
-
-						<image class="menu-item__icon" src="/static/icons/benefit-revenue.png" mode="aspectFit" />
-
-						<text class="menu-item__text">收益明细</text>
 
 						<text class="list-item__arrow">›</text>
 
@@ -152,7 +106,7 @@
 
 						<text class="record-wifi">{{ item.wifi }}</text>
 
-						<text class="record-income">预估+¥{{ item.income }}</text>
+						<text class="record-income">连接</text>
 
 					</view>
 

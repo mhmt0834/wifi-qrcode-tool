@@ -54,7 +54,7 @@
 						<text class="info-value info-value--openid">{{ detail.creatorOpenid || '—' }}</text>
 					</view>
 					<view class="info-row">
-						<text class="info-label">收益商家</text>
+						<text class="info-label">归属商家</text>
 						<text class="info-value info-value--openid">{{ detail.merchantOpenid || '未绑定' }}</text>
 					</view>
 					<view class="info-row">
@@ -99,7 +99,7 @@
 
 				<view v-if="!editMode && detail.canAssignMerchantOpenid" class="card">
 					<view class="card__title">商家归属</view>
-					<view class="card__desc">收益、连接记录和商家后台管理权将归属于该商家 OpenID</view>
+					<view class="card__desc">连接记录和商家后台管理权将归属于该商家 OpenID</view>
 					<input v-model="merchantOpenidInput" class="input-field" placeholder="请输入商家 openid" />
 					<button class="btn-primary btn-block" :loading="assigningMerchant" @click="handleAssignMerchant">
 						绑定商家

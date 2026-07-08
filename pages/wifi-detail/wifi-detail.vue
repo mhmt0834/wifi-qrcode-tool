@@ -282,11 +282,8 @@ async function onGetPassword() {
 	if (passwordUnlocked.value) return
 
 	if (!promoVideoUrl.value) {
-		uni.showModal({
-			title: '暂不可获取',
-			content: '该商家宣传视频尚未配置或未通过审核，请联系商家处理。',
-			showCancel: false
-		})
+		promoWatchedSeconds.value = 10
+		await finishPromoVideo()
 		return
 	}
 	promoWatchedSeconds.value = 0

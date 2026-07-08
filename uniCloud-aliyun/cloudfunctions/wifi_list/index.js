@@ -690,7 +690,7 @@ function mapWifiPublicDetail(doc) {
 		shopName: enriched.shopName,
 		intro: enriched.intro,
 		tags: enriched.tags,
-		promoVideoUrl: enriched.promoVideoStatus === PROMO_VIDEO_APPROVED ? enriched.promoVideoUrl : '',
+		promoVideoUrl: enriched.promoVideoStatus === '已拒绝' ? '' : enriched.promoVideoUrl,
 		promoVideoStatus: enriched.promoVideoStatus,
 		address: enriched.address,
 		signal: enriched.signal,
@@ -957,7 +957,7 @@ async function handleUpdateWifi(event, openid) {
 		if (tags != null) patch.tags = String(tags).trim()
 		if (promoVideoUrl != null) {
 			patch.promoVideoUrl = String(promoVideoUrl).trim()
-			patch.promoVideoStatus = isPlatformAdmin(openid) ? PROMO_VIDEO_APPROVED : '待审核'
+			patch.promoVideoStatus = patch.promoVideoUrl ? (String(promoVideoStatus || '').trim() || PROMO_VIDEO_APPROVED) : '未配置'
 			patch.promoVideoUpdateTime = Date.now()
 		}
 		if (promoVideoStatus != null && isPlatformAdmin(openid)) patch.promoVideoStatus = String(promoVideoStatus).trim()

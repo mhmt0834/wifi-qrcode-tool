@@ -19,10 +19,8 @@
 				</view>
 
 				<view class="rule-box">
-					<view class="rule-box__line">仅本页观看广告计入进度</view>
-					<view class="rule-box__line">今日累计 8 次，可申请 1 个月体验卡</view>
-					<view class="rule-box__line">今日累计 18 次，可申请长期免广告特权</view>
-					<view class="rule-box__line">进度每日 0 点清零，达标后提交平台审核</view>
+					<view class="rule-box__line">该福利功能已暂停</view>
+					<view class="rule-box__line">当前获取 WiFi 密码以商家宣传视频为准</view>
 				</view>
 
 				<view v-if="activePrivilegeText" class="privilege-banner">
@@ -53,9 +51,7 @@
 
 				<button
 					class="btn-primary btn-block benefit-btn"
-					:loading="adLoading"
 					:disabled="buttonDisabled"
-					@click="watchBenefitAd"
 				>
 					{{ buttonText }}
 				</button>
@@ -68,8 +64,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import CustomNavbar from '@/components/custom-navbar/custom-navbar.vue'
-import { getRewardAdFailMessage, showRewardAdWithTicket } from '@/utils/ad-provider.js'
-import { getWifiFreeStatus, recordWifiFreeAdWatch } from '@/utils/benefit-db.js'
+import { getWifiFreeStatus } from '@/utils/benefit-db.js'
 
 const watchCount = ref(0)
 const monthlyRequiredCount = ref(8)
@@ -77,7 +72,6 @@ const permanentRequiredCount = ref(18)
 const activePrivilege = ref(null)
 const monthlyRequestStatus = ref('')
 const permanentRequestStatus = ref('')
-const adLoading = ref(false)
 
 const monthlyProgress = computed(() => {
 	return Math.min(100, Math.round((watchCount.value / monthlyRequiredCount.value) * 100))
@@ -108,14 +102,11 @@ const permanentRequestText = computed(() => {
 })
 
 const buttonDisabled = computed(() => {
-	return adLoading.value || (activePrivilege.value && activePrivilege.value.level === 'permanent')
+	return true
 })
 
 const buttonText = computed(() => {
-	if (activePrivilege.value && activePrivilege.value.level === 'permanent') return '已拥有长期特权'
-	if (permanentRequestStatus.value === 'pending') return '长期特权审核中'
-	if (watchCount.value >= permanentRequiredCount.value) return '今日已达成'
-	return '获取特权'
+	return '功能已暂停'
 })
 
 function applyStatus(data = {}) {
@@ -132,38 +123,6 @@ async function loadStatus() {
 		applyStatus(await getWifiFreeStatus())
 	} catch (err) {
 		uni.showToast({ title: err.message || '福利状态加载失败', icon: 'none' })
-	}
-}
-
-async function watchBenefitAd() {
-	if (buttonDisabled.value) return
-	adLoading.value = true
-	try {
-		const adResult = await showRewardAdWithTicket()
-		if (!adResult.completed || !adResult.ticket) {
-			uni.showModal({
-				title: '广告未播放',
-				content: adResult.error || getRewardAdFailMessage(),
-				showCancel: false
-			})
-			return
-		}
-		const data = await recordWifiFreeAdWatch(adResult.ticket)
-		applyStatus(data)
-		const created = data.createdRequests || []
-		if (created.length) {
-			uni.showModal({
-				title: '已提交申请',
-				content: created.map((item) => item.title).join('、') + '已自动提交管理员审核。',
-				showCancel: false
-			})
-			return
-		}
-		uni.showToast({ title: `今日进度 ${watchCount.value}/${permanentRequiredCount.value}`, icon: 'none' })
-	} catch (err) {
-		uni.showToast({ title: err.message || '记录失败', icon: 'none' })
-	} finally {
-		adLoading.value = false
 	}
 }
 

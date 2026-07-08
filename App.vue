@@ -1,7 +1,4 @@
 <script>
-
-import { preloadRewardAd } from '@/utils/ad-provider.js'
-
 import { installFrameworkConsoleFilter } from '@/utils/console-filter.js'
 
 
@@ -11,8 +8,6 @@ export default {
 	onLaunch() {
 
 		installFrameworkConsoleFilter()
-
-		preloadRewardAd()
 
 	},
 
