@@ -38,10 +38,6 @@ const WIFI_FREE_MONTHLY_REQUIRED_COUNT = 8
 const WIFI_FREE_PERMANENT_REQUIRED_COUNT = 18
 const WIFI_FREE_MONTHLY_DAYS = 30
 const PROMO_VIDEO_APPROVED = '已通过'
-const DEFAULT_PROMO_VIDEOS = [
-	{ keyword: '云顶台球厅', url: '/static/promo/yunding-billiards.mp4' },
-	{ keyword: '七洲饭餐厅', url: '/static/promo/qizhou-restaurant.mp4' }
-]
 
 /**
  * 平台管理员 openid 白名单。
@@ -643,8 +639,7 @@ async function handleDelete(event, openid) {
 function enrichWifiDoc(item) {
 	const viewCount = item.viewCount || 0
 	const connectCount = item.connectCount || 0
-	const fallbackPromo = DEFAULT_PROMO_VIDEOS.find((video) => String(item.shopName || '').indexOf(video.keyword) !== -1)
-	const promoVideoUrl = item.promoVideoUrl || (fallbackPromo && fallbackPromo.url) || ''
+	const promoVideoUrl = item.promoVideoUrl || ''
 	return {
 		...item,
 		viewCount,
