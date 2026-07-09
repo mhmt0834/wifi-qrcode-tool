@@ -180,6 +180,7 @@ const connecting = ref(false)
 const connectStatus = ref('idle')
 const wifiDocId = ref('')
 const promoVideoUrl = ref('')
+const promoVideoStatus = ref('未配置')
 const promoVideoVisible = ref(false)
 const promoWatchedSeconds = ref(0)
 const promoCanSkip = computed(() => promoWatchedSeconds.value >= 10)
@@ -229,6 +230,7 @@ async function loadPublicWifi(id) {
 		wifiSignal.value = doc.signal || '强'
 		wifiStatus.value = doc.status || '在线'
 		promoVideoUrl.value = doc.promoVideoUrl || ''
+		promoVideoStatus.value = doc.promoVideoStatus || '未配置'
 		recordWifiView(id)
 	} catch (err) {
 		loadError.value = '加载失败，请稍后重试'
@@ -282,6 +284,14 @@ async function onGetPassword() {
 	if (passwordUnlocked.value) return
 
 	if (!promoVideoUrl.value) {
+		if (promoVideoStatus.value && promoVideoStatus.value !== '未配置') {
+			uni.showModal({
+				title: '宣传视频未生效',
+				content: '该 WiFi 已设置宣传视频状态，但视频地址未同步到详情页。请重新保存视频地址，并确认已部署最新云函数。',
+				showCancel: false
+			})
+			return
+		}
 		promoWatchedSeconds.value = 10
 		await finishPromoVideo()
 		return

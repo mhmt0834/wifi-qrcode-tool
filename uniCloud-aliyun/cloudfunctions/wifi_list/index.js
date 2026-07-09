@@ -38,6 +38,19 @@ const WIFI_FREE_MONTHLY_REQUIRED_COUNT = 8
 const WIFI_FREE_PERMANENT_REQUIRED_COUNT = 18
 const WIFI_FREE_MONTHLY_DAYS = 30
 const PROMO_VIDEO_APPROVED = '已通过'
+const PROMO_VIDEO_STATUS_LIST = ['未配置', '待审核', '已通过', '已拒绝']
+
+function normalizePromoVideoStatus(value, hasVideo) {
+	const status = String(value || '').trim()
+	if (!hasVideo) return '未配置'
+	if (PROMO_VIDEO_STATUS_LIST.indexOf(status) !== -1 && status !== '未配置') return status
+	return PROMO_VIDEO_APPROVED
+}
+
+function isValidPromoVideoUrl(value) {
+	const url = String(value || '').trim()
+	return !url || url.indexOf('https://') === 0 || url.indexOf('cloud://') === 0
+}
 
 /**
  * 平台管理员 openid 白名单。
@@ -957,10 +970,18 @@ async function handleUpdateWifi(event, openid) {
 		if (tags != null) patch.tags = String(tags).trim()
 		if (promoVideoUrl != null) {
 			patch.promoVideoUrl = String(promoVideoUrl).trim()
-			patch.promoVideoStatus = patch.promoVideoUrl ? (String(promoVideoStatus || '').trim() || PROMO_VIDEO_APPROVED) : '未配置'
+			if (!isValidPromoVideoUrl(patch.promoVideoUrl)) {
+				return {
+					code: 400,
+					msg: '宣传视频地址必须是 https:// 或 cloud://',
+					data: null
+				}
+			}
+			patch.promoVideoStatus = normalizePromoVideoStatus(promoVideoStatus, !!patch.promoVideoUrl)
 			patch.promoVideoUpdateTime = Date.now()
+		} else if (promoVideoStatus != null && isPlatformAdmin(openid)) {
+			patch.promoVideoStatus = normalizePromoVideoStatus(promoVideoStatus, !!data[0].promoVideoUrl)
 		}
-		if (promoVideoStatus != null && isPlatformAdmin(openid)) patch.promoVideoStatus = String(promoVideoStatus).trim()
 		if (latitude != null) patch.latitude = Number(latitude)
 		if (longitude != null) patch.longitude = Number(longitude)
 		await wifiCollection.doc(id).update(patch)

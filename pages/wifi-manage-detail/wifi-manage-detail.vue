@@ -233,6 +233,15 @@ const form = ref({
 const merchantOpenidInput = ref('')
 const promoStatusOptions = ['未配置', '待审核', '已通过', '已拒绝']
 
+function normalizePromoVideoUrl(value) {
+	return String(value || '').trim()
+}
+
+function isValidPromoVideoUrl(value) {
+	const url = normalizePromoVideoUrl(value)
+	return !url || url.indexOf('https://') === 0 || url.indexOf('cloud://') === 0
+}
+
 const tagList = computed(() => {
 	const raw = (detail.value && detail.value.tags) || ''
 	return raw
@@ -465,9 +474,20 @@ async function saveEdit() {
 		uni.showToast({ title: '请填写 WiFi 名称、密码和店铺', icon: 'none' })
 		return
 	}
+	form.value.promoVideoUrl = normalizePromoVideoUrl(form.value.promoVideoUrl)
+	if (!isValidPromoVideoUrl(form.value.promoVideoUrl)) {
+		uni.showToast({ title: '宣传视频地址必须是 https:// 或 cloud://', icon: 'none' })
+		return
+	}
+	if (form.value.promoVideoUrl && form.value.promoVideoStatus === '未配置') {
+		form.value.promoVideoStatus = '已通过'
+	}
 	saving.value = true
 	try {
 		const data = await updateWifi(wifiId.value, { ...form.value })
+		if (form.value.promoVideoUrl && !data.promoVideoUrl) {
+			throw new Error('宣传视频地址未保存成功，请检查云函数和数据库字段是否已部署')
+		}
 		detail.value = data
 		fillFormFromDetail(data)
 		editMode.value = false
