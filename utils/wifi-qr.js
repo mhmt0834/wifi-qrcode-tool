@@ -56,6 +56,8 @@ export function mapWifiPublicDetail(data) {
 		shop: data.shopName || '',
 		intro: data.intro || '',
 		tags: data.tags || '',
+		promoVideoUrl: data.promoVideoUrl || '',
+		promoVideoStatus: data.promoVideoStatus || '未配置',
 		address: data.address || '',
 		signal: data.signal || '强',
 		status: data.status || '在线',
