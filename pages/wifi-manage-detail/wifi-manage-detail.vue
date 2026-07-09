@@ -84,7 +84,7 @@
 					<input v-model="form.wifiPassword" class="input-field" password placeholder="WiFi密码" />
 					<input v-model="form.shopName" class="input-field" placeholder="店铺名称" />
 					<input v-model="form.address" class="input-field" placeholder="地址" />
-					<input v-model="form.promoVideoUrl" class="input-field" placeholder="商家宣传视频地址（每个WiFi单独配置）" />
+					<input v-model="form.promoVideoUrl" class="input-field" placeholder="推荐填写云存储 cloud:// 文件ID，或 https 视频地址" />
 					<picker mode="selector" :range="promoStatusOptions" @change="onPromoStatusChange">
 						<view class="picker-field">视频审核：{{ form.promoVideoStatus || '未配置' }}</view>
 					</picker>

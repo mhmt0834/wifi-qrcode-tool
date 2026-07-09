@@ -113,6 +113,39 @@ export async function getWifiConnectCredential(id) {
 	return result.data || { wifiName: '', wifiPassword: '' }
 }
 
+export function resolvePromoVideoDisplayUrl(url) {
+	return new Promise((resolve, reject) => {
+		const raw = String(url || '').trim()
+		if (!raw) {
+			reject(new Error('视频地址为空'))
+			return
+		}
+		if (/^https:\/\//i.test(raw)) {
+			resolve(raw)
+			return
+		}
+		if (raw.indexOf('cloud://') !== 0) {
+			reject(new Error('视频地址需使用 https:// 或 cloud://'))
+			return
+		}
+		if (typeof uniCloud === 'undefined' || !uniCloud.getTempFileURL) {
+			reject(new Error('uniCloud 未初始化，无法读取云存储视频'))
+			return
+		}
+		uniCloud.getTempFileURL({
+			fileList: [raw],
+			success: (res) => {
+				try {
+					resolve(pickTempFileUrlFromResult(res, raw))
+				} catch (err) {
+					reject(err)
+				}
+			},
+			fail: (err) => reject(err)
+		})
+	})
+}
+
 /** 生成小程序码并写入 qrCodeUrl */
 export async function generateWifiQrCode(id) {
 	const result = await callWifiQrCloud({ action: 'generateWifiQrCode', id }, true)

@@ -157,6 +157,7 @@ import {
 import {
 	getWifiPublicDetail,
 	getWifiConnectCredential,
+	resolvePromoVideoDisplayUrl,
 	resolveWifiIdFromOptions
 } from '@/utils/wifi-qr.js'
 import { recordWifiView, recordWifiConnect } from '@/utils/merchant-db.js'
@@ -180,7 +181,9 @@ const connecting = ref(false)
 const connectStatus = ref('idle')
 const wifiDocId = ref('')
 const promoVideoUrl = ref('')
+const promoVideoRawUrl = ref('')
 const promoVideoStatus = ref('未配置')
+const promoVideoError = ref('')
 const promoVideoVisible = ref(false)
 const promoWatchedSeconds = ref(0)
 const promoCanSkip = computed(() => promoWatchedSeconds.value >= 10)
@@ -229,8 +232,17 @@ async function loadPublicWifi(id) {
 		viewCount.value = doc.viewCount
 		wifiSignal.value = doc.signal || '强'
 		wifiStatus.value = doc.status || '在线'
-		promoVideoUrl.value = doc.promoVideoUrl || ''
+		promoVideoRawUrl.value = doc.promoVideoUrl || ''
+		promoVideoUrl.value = ''
+		promoVideoError.value = ''
 		promoVideoStatus.value = doc.promoVideoStatus || '未配置'
+		if (promoVideoRawUrl.value) {
+			try {
+				promoVideoUrl.value = await resolvePromoVideoDisplayUrl(promoVideoRawUrl.value)
+			} catch (err) {
+				promoVideoError.value = err.message || '视频地址解析失败'
+			}
+		}
 		recordWifiView(id)
 	} catch (err) {
 		loadError.value = '加载失败，请稍后重试'
@@ -284,6 +296,14 @@ async function onGetPassword() {
 	if (passwordUnlocked.value) return
 
 	if (!promoVideoUrl.value) {
+		if (promoVideoRawUrl.value) {
+			uni.showModal({
+				title: '宣传视频无法播放',
+				content: `${promoVideoError.value || '视频地址解析失败'}。建议在云存储详情里复制 cloud:// 文件ID，或确认 https 视频域名已配置到小程序 downloadFile 合法域名。`,
+				showCancel: false
+			})
+			return
+		}
 		if (promoVideoStatus.value && promoVideoStatus.value !== '未配置') {
 			uni.showModal({
 				title: '宣传视频未生效',
@@ -320,10 +340,11 @@ async function finishPromoVideo() {
 	}
 }
 
-function onPromoVideoError() {
+function onPromoVideoError(event) {
+	const msg = (event && event.detail && (event.detail.errMsg || event.detail.errCode)) || ''
 	uni.showModal({
 		title: '视频播放失败',
-		content: '商家宣传视频暂时无法播放，请稍后重试。',
+		content: `${msg ? msg + '。' : ''}请确认已使用 cloud:// 文件ID，或将视频 HTTPS 域名加入小程序 downloadFile 合法域名。`,
 		showCancel: false
 	})
 	promoVideoVisible.value = false
