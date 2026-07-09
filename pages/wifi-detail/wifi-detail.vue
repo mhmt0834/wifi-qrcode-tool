@@ -299,7 +299,7 @@ async function onGetPassword() {
 		if (promoVideoRawUrl.value) {
 			uni.showModal({
 				title: '宣传视频无法播放',
-				content: `${promoVideoError.value || '视频地址解析失败'}。建议在云存储详情里复制 cloud:// 文件ID，或确认 https 视频域名已配置到小程序 downloadFile 合法域名。`,
+		content: `${promoVideoError.value || '视频地址解析失败'}。建议在云存储详情里复制 cloud:// 文件ID，或确认 https 视频域名已配置到小程序 downloadFile 合法域名。`,
 				showCancel: false
 			})
 			return
@@ -344,7 +344,7 @@ function onPromoVideoError(event) {
 	const msg = (event && event.detail && (event.detail.errMsg || event.detail.errCode)) || ''
 	uni.showModal({
 		title: '视频播放失败',
-		content: `${msg ? msg + '。' : ''}请确认已使用 cloud:// 文件ID，或将视频 HTTPS 域名加入小程序 downloadFile 合法域名。`,
+		content: `${msg ? msg + '。' : ''}请确认视频地址可访问，并将 mp-fcd4327f-588c-4408-93cc-786fbeb28628.cdn.bspapp.com 加入小程序 downloadFile 合法域名。`,
 		showCancel: false
 	})
 	promoVideoVisible.value = false

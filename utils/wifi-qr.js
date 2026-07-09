@@ -121,7 +121,7 @@ export function resolvePromoVideoDisplayUrl(url) {
 			return
 		}
 		if (/^https:\/\//i.test(raw)) {
-			resolve(raw)
+			resolve(encodeURI(raw))
 			return
 		}
 		if (raw.indexOf('cloud://') !== 0) {
